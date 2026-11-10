@@ -1,0 +1,653 @@
+package view;
+
+import controller.CatalogoController;
+import controller.PainelController;
+import model.*;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
+import javax.swing.table.AbstractTableModel;
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+
+/**
+ * VIEW: tela "Catálogo" (Tela 3 do protótipo), com quatro abas:
+ *  Produtos | Pacotes | Temas e categorias | Serviços.
+ * Cada aba tem a lista à esquerda e o detalhe/formulário à direita. Nada é excluído: usa-se
+ * Inativar/Reativar (o histórico das locações fica preservado). As regras ficam no CatalogoController.
+ */
+public class TelaCatalogo extends JPanel {
+
+    private static final Catalogo.Tema SEM_TEMA = new Catalogo.Tema("(sem tema)", "");
+
+    private final TelaPrincipal app;
+    private final PainelController ctrl;
+    private final CatalogoController cat;
+    private final TelaPrincipal.Campo busca = new TelaPrincipal.Campo("Buscar produto ou categoria", 12);
+    private final JButton btnNovo = TelaPrincipal.botaoCinza("+ Novo produto", 13);
+    private final CardLayout cartas = new CardLayout();
+    private final JPanel abas = new JPanel(cartas);
+    private final JToggleButton[] botoes = new JToggleButton[4];
+    private int abaAtual = 0;
+    private boolean atualizando = false;
+
+    private final AbaProdutos produtos = new AbaProdutos();
+    private final AbaPacotes pacotes = new AbaPacotes();
+    private final PainelSimples temas, categorias, servicos;
+
+    public TelaCatalogo(TelaPrincipal app, PainelController ctrl, CatalogoController cat) {
+        super(new BorderLayout());
+        this.app = app;
+        this.ctrl = ctrl;
+        this.cat = cat;
+        setBackground(TelaPrincipal.BRANCO);
+        setBorder(new EmptyBorder(14, 16, 16, 16));
+
+        temas = new PainelSimples("TEMAS", "Tema", false, new Cadastro() {
+            public List<?> lista() { return Catalogo.TEMAS; }
+            public String nome(Object o) { return ((Catalogo.Tema) o).nome; }
+            public String descricao(Object o) { return ((Catalogo.Tema) o).descricao; }
+            public boolean ativo(Object o) { return ((Catalogo.Tema) o).ativo; }
+            public double valor(Object o) { return 0; }
+            public Object salvar(Object ex, String n, String d, double v) { return cat.salvarTema((Catalogo.Tema) ex, n, d); }
+        });
+        categorias = new PainelSimples("CATEGORIAS", "Categoria", false, new Cadastro() {
+            public List<?> lista() { return Catalogo.CATEGORIAS; }
+            public String nome(Object o) { return ((Catalogo.Categoria) o).nome; }
+            public String descricao(Object o) { return ((Catalogo.Categoria) o).descricao; }
+            public boolean ativo(Object o) { return ((Catalogo.Categoria) o).ativo; }
+            public double valor(Object o) { return 0; }
+            public Object salvar(Object ex, String n, String d, double v) { return cat.salvarCategoria((Catalogo.Categoria) ex, n, d); }
+        });
+        servicos = new PainelSimples("SERVIÇOS", "Serviço", true, new Cadastro() {
+            public List<?> lista() { return Catalogo.SERVICOS; }
+            public String nome(Object o) { return ((Catalogo.Servico) o).nome; }
+            public String descricao(Object o) { return ((Catalogo.Servico) o).descricao; }
+            public boolean ativo(Object o) { return ((Catalogo.Servico) o).ativo; }
+            public double valor(Object o) { return ((Catalogo.Servico) o).valor; }
+            public Object salvar(Object ex, String n, String d, double v) { return cat.salvarServico((Catalogo.Servico) ex, n, d, v); }
+        });
+
+        // ----- cabeçalho -----
+        JPanel cab = new JPanel(new BorderLayout());
+        cab.setOpaque(false);
+        cab.add(TelaPrincipal.rotulo("Catálogo", Font.BOLD, 20), BorderLayout.WEST);
+        JPanel dir = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        dir.setOpaque(false);
+        busca.setPreferredSize(new Dimension(250, 36));
+        busca.getDocument().addDocumentListener(Ui.ouvinte(this::atualizar));
+        btnNovo.setPreferredSize(new Dimension(160, 36));
+        btnNovo.addActionListener(e -> novo());
+        dir.add(busca);
+        dir.add(btnNovo);
+        cab.add(dir, BorderLayout.EAST);
+
+        // ----- abas -----
+        String[] nomes = {"Produtos", "Pacotes", "Temas e categorias", "Serviços"};
+        JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        barra.setOpaque(false);
+        barra.setBorder(new EmptyBorder(12, 0, 12, 0));
+        ButtonGroup g = new ButtonGroup();
+        for (int i = 0; i < nomes.length; i++) {
+            final int idx = i;
+            botoes[i] = Ui.botaoEscolha(nomes[i]);
+            botoes[i].setPreferredSize(new Dimension(i == 2 ? 170 : 110, 34));
+            botoes[i].addActionListener(e -> trocarAba(idx));
+            g.add(botoes[i]);
+            barra.add(botoes[i]);
+        }
+        botoes[0].setSelected(true);
+
+        JPanel temasCategorias = new JPanel(new GridLayout(1, 2, 14, 0));
+        temasCategorias.setOpaque(false);
+        temasCategorias.add(temas);
+        temasCategorias.add(categorias);
+        abas.setOpaque(false);
+        abas.add(produtos, "0");
+        abas.add(pacotes, "1");
+        abas.add(temasCategorias, "2");
+        abas.add(servicos, "3");
+
+        JPanel topo = new JPanel(new BorderLayout());
+        topo.setOpaque(false);
+        topo.add(cab, BorderLayout.NORTH);
+        topo.add(barra, BorderLayout.SOUTH);
+        add(topo, BorderLayout.NORTH);
+        add(abas, BorderLayout.CENTER);
+        atualizar();
+    }
+
+    private void trocarAba(int i) {
+        abaAtual = i;
+        cartas.show(abas, String.valueOf(i));
+        btnNovo.setVisible(i != 2);
+        btnNovo.setText(i == 0 ? "+ Novo produto" : i == 1 ? "+ Novo pacote" : "+ Novo serviço");
+        busca.setText("");
+        atualizar();
+    }
+
+    private void novo() {
+        if (abaAtual == 0) produtos.novo();
+        else if (abaAtual == 1) pacotes.novo();
+        else if (abaAtual == 3) servicos.novo();
+    }
+
+    /** Recarrega as listas (chamado quando algo muda). */
+    public void atualizar() {
+        if (atualizando) return;
+        atualizando = true;
+        try {
+            String q = busca.getText().trim().toLowerCase();
+            produtos.recarregar(q);
+            pacotes.recarregar(q);
+            temas.recarregar(q);
+            categorias.recarregar(q);
+            servicos.recarregar(q);
+        } finally {
+            atualizando = false;
+        }
+    }
+
+    // ====================================================================================
+    //  Auxiliares de tela
+    // ====================================================================================
+    private static String situacao(boolean ativo) { return ativo ? "Ativo" : "Inativo"; }
+
+    private static JPanel coluna(JComponent... itens) {
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setOpaque(false);
+        for (JComponent c : itens) {
+            c.setAlignmentX(Component.LEFT_ALIGNMENT);
+            c.setMaximumSize(new Dimension(Integer.MAX_VALUE, Math.max(c.getPreferredSize().height, 20)));
+            p.add(c);
+            p.add(Box.createVerticalStrut(6));
+        }
+        return p;
+    }
+
+    private static TelaPrincipal.Campo campo(String dica) {
+        TelaPrincipal.Campo c = new TelaPrincipal.Campo(dica, 13);
+        c.setPreferredSize(new Dimension(100, 34));
+        return c;
+    }
+
+    private static JScrollPane rolagem(JComponent c) {
+        JScrollPane sp = new JScrollPane(c);
+        sp.setBorder(new LineBorder(TelaPrincipal.CINZA_LINHA, 1));
+        sp.getViewport().setBackground(TelaPrincipal.BRANCO);
+        return sp;
+    }
+
+    private static JScrollPane rolagemSemBorda(JComponent c) {
+        JScrollPane sp = new JScrollPane(c);
+        sp.setBorder(null);
+        sp.setOpaque(false);
+        sp.getViewport().setOpaque(false);
+        sp.getVerticalScrollBar().setUnitIncrement(16);
+        return sp;
+    }
+
+    private static void texto(JLabel l, String t) { l.setText("<html><div style='width:230px'>" + t.replace("\n", "<br>") + "</div></html>"); }
+
+    private static JPanel botoesForm(JButton... bs) {
+        JPanel p = new JPanel(new GridLayout(1, bs.length, 8, 0));
+        p.setOpaque(false);
+        for (JButton b : bs) { b.setPreferredSize(new Dimension(100, 36)); p.add(b); }
+        return p;
+    }
+
+    /** Modelo de tabela genérico: uma lista e uma função que transforma o item numa linha. */
+    private static class Modelo<T> extends AbstractTableModel {
+        final List<T> dados = new ArrayList<>();
+        final String[] cols;
+        final Function<T, Object[]> linha;
+        Modelo(String[] cols, Function<T, Object[]> linha) { this.cols = cols; this.linha = linha; }
+        public int getRowCount() { return dados.size(); }
+        public int getColumnCount() { return cols.length; }
+        @Override public String getColumnName(int c) { return cols[c]; }
+        public Object getValueAt(int r, int c) { return linha.apply(dados.get(r))[c]; }
+    }
+
+    // ====================================================================================
+    //  Aba PRODUTOS (UC08)
+    // ====================================================================================
+    private class AbaProdutos extends JPanel {
+        final Modelo<Catalogo.Item> modelo = new Modelo<>(new String[]{"Nome", "Categoria", "Valor", "Disp./Total", "Situação"},
+                p -> new Object[]{p.nome, p.categoria == null ? "-" : p.categoria.nome, TelaPrincipal.moeda(p.preco),
+                        cat.disponivelHoje(p) + "/" + p.estoque, situacao(p.ativo)});
+        final JTable tabela = new JTable(modelo);
+        final TelaPrincipal.Campo tfNome = campo("Nome"), tfCor = campo("Cor / material / personagem"),
+                tfPreco = campo("Valor de locação (R$)"), tfTotal = campo("Quantidade total"), tfIndisp = campo("Quantidade indisponível");
+        final JComboBox<Catalogo.Categoria> cbCategoria = new JComboBox<>();
+        final JLabel info = TelaPrincipal.rotulo(" ", Font.PLAIN, 11), msg = TelaPrincipal.rotulo(" ", Font.BOLD, 12);
+        final JButton salvar = Ui.botaoPreto("Salvar", 13), inativar = TelaPrincipal.botaoCinza("Inativar", 13);
+        Catalogo.Item sel;
+        boolean carregando;
+
+        AbaProdutos() {
+            super(new BorderLayout(14, 0));
+            setOpaque(false);
+            TelaClientes.estilizarTabela(tabela, 12, 6);
+            int[] larg = {200, 120, 80, 80, 70};
+            for (int i = 0; i < larg.length; i++) tabela.getColumnModel().getColumn(i).setPreferredWidth(larg[i]);
+            tabela.getSelectionModel().addListSelectionListener(e -> {
+                if (e.getValueIsAdjusting() || carregando) return;
+                int i = tabela.getSelectedRow();
+                preencher(i >= 0 && i < modelo.dados.size() ? modelo.dados.get(i) : null);
+            });
+            add(Ui.caixa("PRODUTOS", rolagem(tabela)), BorderLayout.CENTER);
+
+            TelaPrincipal.estilizarCombo(cbCategoria);
+            cbCategoria.setPreferredSize(new Dimension(100, 34));
+            salvar.addActionListener(e -> salvar());
+            inativar.addActionListener(e -> alternar());
+            JPanel form = coluna(Ui.bloco("Nome", tfNome), Ui.bloco("Cor / Material / Personagem", tfCor),
+                    Ui.bloco("Valor de locação (R$)", tfPreco), Ui.bloco("Categoria", cbCategoria),
+                    Ui.bloco("Quantidade total em estoque", tfTotal),
+                    Ui.bloco("Quantidade indisponível (danificada)", tfIndisp), info, botoesForm(salvar, inativar), msg);
+            JPanel lateral = new JPanel(new BorderLayout());
+            lateral.setOpaque(false);
+            lateral.setPreferredSize(new Dimension(320, 100));
+            lateral.add(Ui.caixa("DETALHE DO PRODUTO", rolagemSemBorda(form)), BorderLayout.CENTER);
+            add(lateral, BorderLayout.EAST);
+            preencher(null);
+        }
+
+        void recarregar(String q) {
+            Catalogo.Item antes = sel;
+            carregando = true;
+            modelo.dados.clear();
+            for (Catalogo.Item p : Catalogo.produtos())
+                if (q.isEmpty() || (p.nome + " " + p.cor + " " + (p.categoria == null ? "" : p.categoria.nome)).toLowerCase().contains(q))
+                    modelo.dados.add(p);
+            modelo.fireTableDataChanged();
+            int i = modelo.dados.indexOf(antes);
+            if (i >= 0) tabela.setRowSelectionInterval(i, i);
+            carregando = false;
+            if (antes != null && i >= 0) rotuloBotoes(antes);
+            categoriasAtivas();
+        }
+
+        void categoriasAtivas() {
+            Object atual = cbCategoria.getSelectedItem();
+            cbCategoria.removeAllItems();
+            for (Catalogo.Categoria c : Catalogo.CATEGORIAS) if (c.ativo || (sel != null && sel.categoria == c)) cbCategoria.addItem(c);
+            if (atual != null) cbCategoria.setSelectedItem(atual);
+        }
+
+        void novo() {
+            carregando = true;
+            tabela.clearSelection();
+            carregando = false;
+            preencher(null);
+            tfNome.requestFocusInWindow();
+        }
+
+        void preencher(Catalogo.Item p) {
+            sel = p;
+            categoriasAtivas();
+            msg.setText(" ");
+            if (p == null) {
+                tfNome.setText(""); tfCor.setText(""); tfPreco.setText(""); tfTotal.setText(""); tfIndisp.setText("0");
+                if (cbCategoria.getItemCount() > 0) cbCategoria.setSelectedIndex(0);
+                info.setText(" ");
+                inativar.setVisible(false);
+            } else {
+                tfNome.setText(p.nome); tfCor.setText(p.cor); tfPreco.setText(Ui.numero(p.preco));
+                tfTotal.setText(String.valueOf(p.estoque)); tfIndisp.setText(String.valueOf(p.indisponivel));
+                cbCategoria.setSelectedItem(p.categoria);
+                info.setText("Livres hoje: " + cat.disponivelHoje(p) + " · utilizáveis: " + p.estoqueUtil());
+                rotuloBotoes(p);
+            }
+        }
+
+        void rotuloBotoes(Catalogo.Item p) {
+            inativar.setVisible(true);
+            inativar.setText(p.ativo ? "Inativar" : "Reativar");
+        }
+
+        void salvar() {
+            try {
+                boolean novo = sel == null;
+                Catalogo.Item p = cat.salvarProduto(sel, tfNome.getText(), tfCor.getText(), (Catalogo.Categoria) cbCategoria.getSelectedItem(),
+                        TelaPrincipal.lerValor(tfPreco.getText()), inteiro(tfTotal.getText()), inteiro(tfIndisp.getText()));
+                recarregar(busca.getText().trim().toLowerCase());
+                int i = modelo.dados.indexOf(p);
+                if (i >= 0) { carregando = true; tabela.setRowSelectionInterval(i, i); carregando = false; }
+                preencher(p);
+                texto(msg, novo ? Mensagens.MSG001 : Mensagens.MSG004);
+            } catch (RegraNegocioException e) {
+                texto(msg, e.getMessage());
+            }
+        }
+
+        void alternar() {
+            if (sel == null) return;
+            String aviso = cat.alternarAtivo(sel);
+            preencher(sel);
+            texto(msg, (sel.ativo ? "Produto reativado. (Indisponibilidade por dano não muda sozinha.)" : Mensagens.MSG006)
+                    + (aviso == null ? "" : "\n" + aviso));
+        }
+    }
+
+    private static int inteiro(String t) {
+        try { return Integer.parseInt(t.trim()); } catch (NumberFormatException e) { return -1; }
+    }
+
+    // ====================================================================================
+    //  Aba PACOTES (UC12)
+    // ====================================================================================
+    private class AbaPacotes extends JPanel {
+        final Modelo<Catalogo.Item> modelo = new Modelo<>(new String[]{"Nome", "Tema", "Preço", "Disp.", "Situação"},
+                p -> new Object[]{p.nome, p.tema == null ? "-" : p.tema.nome, TelaPrincipal.moeda(p.preco),
+                        String.valueOf(cat.disponivelHoje(p)), situacao(p.ativo)});
+        final JTable tabela = new JTable(modelo);
+        final TelaPrincipal.Campo tfNome = campo("Nome do pacote"), tfDesc = campo("Descrição (opcional)"), tfPreco = campo("Preço do pacote (R$)"),
+                tfQtd = campo("Qtd");
+        final JComboBox<Catalogo.Tema> cbTema = new JComboBox<>();
+        final JComboBox<Catalogo.Item> cbProduto = new JComboBox<>();
+        final Map<Catalogo.Item, Integer> comp = new LinkedHashMap<>();
+        final List<Catalogo.Item> compLista = new ArrayList<>();
+        final AbstractTableModel modeloComp = new AbstractTableModel() {
+            public int getRowCount() { return compLista.size(); }
+            public int getColumnCount() { return 2; }
+            @Override public String getColumnName(int c) { return c == 0 ? "Produto" : "Qtd"; }
+            public Object getValueAt(int r, int c) { Catalogo.Item p = compLista.get(r); return c == 0 ? p.nome : comp.get(p); }
+        };
+        final JTable tabelaComp = new JTable(modeloComp);
+        final JLabel msg = TelaPrincipal.rotulo(" ", Font.BOLD, 12);
+        final JButton salvar = Ui.botaoPreto("Salvar", 13), inativar = TelaPrincipal.botaoCinza("Inativar", 13);
+        Catalogo.Item sel;
+        boolean carregando;
+
+        AbaPacotes() {
+            super(new BorderLayout(14, 0));
+            setOpaque(false);
+            TelaClientes.estilizarTabela(tabela, 12, 6);
+            int[] larg = {200, 120, 80, 50, 70};
+            for (int i = 0; i < larg.length; i++) tabela.getColumnModel().getColumn(i).setPreferredWidth(larg[i]);
+            tabela.getSelectionModel().addListSelectionListener(e -> {
+                if (e.getValueIsAdjusting() || carregando) return;
+                int i = tabela.getSelectedRow();
+                preencher(i >= 0 && i < modelo.dados.size() ? modelo.dados.get(i) : null);
+            });
+            JLabel dica = TelaPrincipal.rotulo("Pacotes usam o MESMO estoque dos produtos avulsos; cadastrar um pacote não reserva nada.", Font.PLAIN, 11);
+            dica.setForeground(TelaPrincipal.CINZA_TEXTO);
+            JPanel esq = new JPanel(new BorderLayout(0, 6));
+            esq.setOpaque(false);
+            esq.add(rolagem(tabela), BorderLayout.CENTER);
+            esq.add(dica, BorderLayout.SOUTH);
+            add(Ui.caixa("PACOTES", esq), BorderLayout.CENTER);
+
+            TelaPrincipal.estilizarCombo(cbTema);
+            TelaPrincipal.estilizarCombo(cbProduto);
+            cbTema.setPreferredSize(new Dimension(100, 34));
+            cbProduto.setPreferredSize(new Dimension(100, 34));
+            TelaClientes.estilizarTabela(tabelaComp, 12, 4);
+            JScrollPane spc = rolagem(tabelaComp);
+            spc.setPreferredSize(new Dimension(100, 110));
+            tfQtd.setPreferredSize(new Dimension(60, 34));
+            JButton add = TelaPrincipal.botaoCinza("+", 14), rem = TelaPrincipal.botaoCinza("−", 14);
+            add.setPreferredSize(new Dimension(44, 34));
+            rem.setPreferredSize(new Dimension(44, 34));
+            add.setToolTipText("Adicionar o produto ao pacote");
+            rem.setToolTipText("Remover o produto selecionado");
+            add.addActionListener(e -> adicionarComp());
+            rem.addActionListener(e -> {
+                int i = tabelaComp.getSelectedRow();
+                if (i >= 0 && i < compLista.size()) { comp.remove(compLista.remove(i)); modeloComp.fireTableDataChanged(); }
+            });
+            JPanel linhaAdd = new JPanel(new BorderLayout(6, 0));
+            linhaAdd.setOpaque(false);
+            linhaAdd.add(cbProduto, BorderLayout.CENTER);
+            JPanel dirAdd = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+            dirAdd.setOpaque(false);
+            dirAdd.add(tfQtd);
+            dirAdd.add(add);
+            dirAdd.add(rem);
+            linhaAdd.add(dirAdd, BorderLayout.EAST);
+            salvar.addActionListener(e -> salvar());
+            inativar.addActionListener(e -> alternar());
+            JPanel form = coluna(Ui.bloco("Nome", tfNome), Ui.bloco("Descrição", tfDesc), Ui.bloco("Tema", cbTema),
+                    Ui.bloco("Preço do pacote (R$)", tfPreco),
+                    TelaPrincipal.rotulo("Composição (produtos e quantidades)", Font.BOLD, 11), spc, linhaAdd,
+                    botoesForm(salvar, inativar), msg);
+            JPanel lateral = new JPanel(new BorderLayout());
+            lateral.setOpaque(false);
+            lateral.setPreferredSize(new Dimension(360, 100));
+            lateral.add(Ui.caixa("DETALHE DO PACOTE", rolagemSemBorda(form)), BorderLayout.CENTER);
+            add(lateral, BorderLayout.EAST);
+            preencher(null);
+        }
+
+        void recarregar(String q) {
+            Catalogo.Item antes = sel;
+            carregando = true;
+            modelo.dados.clear();
+            for (Catalogo.Item p : Catalogo.pacotes())
+                if (q.isEmpty() || (p.nome + " " + p.composicao() + " " + (p.tema == null ? "" : p.tema.nome)).toLowerCase().contains(q))
+                    modelo.dados.add(p);
+            modelo.fireTableDataChanged();
+            int i = modelo.dados.indexOf(antes);
+            if (i >= 0) tabela.setRowSelectionInterval(i, i);
+            carregando = false;
+            opcoes();
+        }
+
+        /** Atualiza as caixas de escolha (temas e produtos ativos). */
+        void opcoes() {
+            Object t = cbTema.getSelectedItem(), pr = cbProduto.getSelectedItem();
+            cbTema.removeAllItems();
+            cbTema.addItem(SEM_TEMA);
+            for (Catalogo.Tema x : Catalogo.TEMAS) if (x.ativo || (sel != null && sel.tema == x)) cbTema.addItem(x);
+            if (t != null) cbTema.setSelectedItem(t);
+            cbProduto.removeAllItems();
+            for (Catalogo.Item p : Catalogo.produtos()) if (p.ativo) cbProduto.addItem(p);
+            if (pr != null) cbProduto.setSelectedItem(pr);
+        }
+
+        void novo() {
+            carregando = true;
+            tabela.clearSelection();
+            carregando = false;
+            preencher(null);
+            tfNome.requestFocusInWindow();
+        }
+
+        void preencher(Catalogo.Item p) {
+            sel = p;
+            opcoes();
+            msg.setText(" ");
+            comp.clear();
+            compLista.clear();
+            tfQtd.setText("1");
+            if (p == null) {
+                tfNome.setText(""); tfDesc.setText(""); tfPreco.setText("");
+                cbTema.setSelectedItem(SEM_TEMA);
+                inativar.setVisible(false);
+            } else {
+                tfNome.setText(p.nome); tfDesc.setText(p.descricao); tfPreco.setText(Ui.numero(p.preco));
+                cbTema.setSelectedItem(p.tema == null ? SEM_TEMA : p.tema);
+                comp.putAll(p.componentes);
+                compLista.addAll(p.componentes.keySet());
+                inativar.setVisible(true);
+                inativar.setText(p.ativo ? "Inativar" : "Reativar");
+            }
+            modeloComp.fireTableDataChanged();
+        }
+
+        void adicionarComp() {
+            Catalogo.Item p = (Catalogo.Item) cbProduto.getSelectedItem();
+            int q = inteiro(tfQtd.getText());
+            if (p == null || q <= 0) { texto(msg, Mensagens.MSG011); return; }
+            if (!comp.containsKey(p)) compLista.add(p);
+            comp.merge(p, q, Integer::sum);
+            modeloComp.fireTableDataChanged();
+            msg.setText(" ");
+        }
+
+        void salvar() {
+            try {
+                boolean novo = sel == null;
+                Catalogo.Tema t = (Catalogo.Tema) cbTema.getSelectedItem();
+                Catalogo.Item p = cat.salvarPacote(sel, tfNome.getText(), tfDesc.getText(), t == SEM_TEMA ? null : t,
+                        TelaPrincipal.lerValor(tfPreco.getText()), new LinkedHashMap<>(comp));
+                recarregar(busca.getText().trim().toLowerCase());
+                int i = modelo.dados.indexOf(p);
+                if (i >= 0) { carregando = true; tabela.setRowSelectionInterval(i, i); carregando = false; }
+                preencher(p);
+                texto(msg, novo ? Mensagens.MSG001 : Mensagens.MSG004);
+            } catch (RegraNegocioException e) {
+                texto(msg, e.getMessage());
+            }
+        }
+
+        void alternar() {
+            if (sel == null) return;
+            String aviso = cat.alternarAtivo(sel);
+            preencher(sel);
+            texto(msg, (sel.ativo ? "Pacote reativado." : Mensagens.MSG006) + (aviso == null ? "" : "\n" + aviso));
+        }
+    }
+
+    // ====================================================================================
+    //  Cadastros simples: temas, categorias e serviços (UC09, UC10, UC06)
+    // ====================================================================================
+    private interface Cadastro {
+        List<?> lista();
+        String nome(Object o);
+        String descricao(Object o);
+        boolean ativo(Object o);
+        double valor(Object o);
+        Object salvar(Object existente, String nome, String descricao, double valor);
+    }
+
+    private class PainelSimples extends JPanel {
+        final Cadastro cad;
+        final boolean temValor;
+        final List<Object> dados = new ArrayList<>();
+        final AbstractTableModel modelo;
+        final JTable tabela;
+        final TelaPrincipal.Campo tfNome, tfDesc, tfValor;
+        final JLabel msg = TelaPrincipal.rotulo(" ", Font.BOLD, 12);
+        final JButton salvar = Ui.botaoPreto("Salvar", 13), inativar = TelaPrincipal.botaoCinza("Inativar", 13),
+                novo = TelaPrincipal.botaoCinza("+ Novo", 13);
+        Object sel;
+        boolean carregando;
+
+        PainelSimples(String titulo, String rotulo, boolean temValor, Cadastro cad) {
+            super(new BorderLayout(0, 10));
+            this.cad = cad;
+            this.temValor = temValor;
+            setOpaque(false);
+            tfNome = campo("Nome");
+            tfDesc = campo("Descrição");
+            tfValor = campo("Valor de referência (R$)");
+            String[] cols = temValor ? new String[]{"Nome", "Descrição", "Valor", "Situação"} : new String[]{"Nome", "Descrição", "Situação"};
+            modelo = new AbstractTableModel() {
+                public int getRowCount() { return dados.size(); }
+                public int getColumnCount() { return cols.length; }
+                @Override public String getColumnName(int c) { return cols[c]; }
+                public Object getValueAt(int r, int c) {
+                    Object o = dados.get(r);
+                    if (c == 0) return cad.nome(o);
+                    if (c == 1) return cad.descricao(o);
+                    if (temValor && c == 2) return TelaPrincipal.moeda(cad.valor(o));
+                    return situacao(cad.ativo(o));
+                }
+            };
+            tabela = new JTable(modelo);
+            TelaClientes.estilizarTabela(tabela, 12, 6);
+            tabela.getSelectionModel().addListSelectionListener(e -> {
+                if (e.getValueIsAdjusting() || carregando) return;
+                int i = tabela.getSelectedRow();
+                preencher(i >= 0 && i < dados.size() ? dados.get(i) : null);
+            });
+            JPanel esq = new JPanel(new BorderLayout(0, 6));
+            esq.setOpaque(false);
+            esq.add(rolagem(tabela), BorderLayout.CENTER);
+            novo.setPreferredSize(new Dimension(100, 32));
+            JPanel nb = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            nb.setOpaque(false);
+            nb.add(novo);
+            esq.add(nb, BorderLayout.SOUTH);
+            novo.addActionListener(e -> novo());
+            salvar.addActionListener(e -> salvar());
+            inativar.addActionListener(e -> alternar());
+
+            List<JComponent> form = new ArrayList<>();
+            form.add(Ui.bloco(rotulo, tfNome));
+            form.add(Ui.bloco("Descrição", tfDesc));
+            if (temValor) form.add(Ui.bloco("Valor de referência (R$)", tfValor));
+            form.add(botoesForm(salvar, inativar));
+            form.add(msg);
+            JPanel f = coluna(form.toArray(new JComponent[0]));
+            JPanel meio = new JPanel(new BorderLayout(0, 8));
+            meio.setOpaque(false);
+            meio.add(esq, BorderLayout.CENTER);
+            meio.add(f, BorderLayout.SOUTH);
+            add(Ui.caixa(titulo, meio), BorderLayout.CENTER);
+            preencher(null);
+        }
+
+        void recarregar(String q) {
+            Object antes = sel;
+            carregando = true;
+            dados.clear();
+            for (Object o : cad.lista())
+                if (q.isEmpty() || (cad.nome(o) + " " + cad.descricao(o)).toLowerCase().contains(q)) dados.add(o);
+            modelo.fireTableDataChanged();
+            int i = dados.indexOf(antes);
+            if (i >= 0) tabela.setRowSelectionInterval(i, i);
+            carregando = false;
+        }
+
+        void novo() {
+            carregando = true;
+            tabela.clearSelection();
+            carregando = false;
+            preencher(null);
+            tfNome.requestFocusInWindow();
+        }
+
+        void preencher(Object o) {
+            sel = o;
+            msg.setText(" ");
+            if (o == null) { tfNome.setText(""); tfDesc.setText(""); tfValor.setText(""); inativar.setVisible(false); }
+            else {
+                tfNome.setText(cad.nome(o)); tfDesc.setText(cad.descricao(o)); tfValor.setText(Ui.numero(cad.valor(o)));
+                inativar.setVisible(true);
+                inativar.setText(cad.ativo(o) ? "Inativar" : "Reativar");
+            }
+        }
+
+        void salvar() {
+            try {
+                boolean ehNovo = sel == null;
+                double v = temValor ? TelaPrincipal.lerValor(tfValor.getText()) : 0;
+                if (temValor && tfValor.getText().trim().isEmpty()) v = 0;
+                Object o = cad.salvar(sel, tfNome.getText(), tfDesc.getText(), v);
+                recarregar(busca.getText().trim().toLowerCase());
+                int i = dados.indexOf(o);
+                if (i >= 0) { carregando = true; tabela.setRowSelectionInterval(i, i); carregando = false; }
+                preencher(o);
+                texto(msg, ehNovo ? Mensagens.MSG001 : Mensagens.MSG004);
+            } catch (RegraNegocioException e) {
+                texto(msg, e.getMessage());
+            }
+        }
+
+        void alternar() {
+            if (sel == null) return;
+            cat.alternarAtivo(sel);
+            preencher(sel);
+            texto(msg, cad.ativo(sel) ? "Cadastro reativado." : Mensagens.MSG006);
+        }
+    }
+}

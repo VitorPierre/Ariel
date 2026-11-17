@@ -13,7 +13,8 @@ import java.util.Map;
 public class Devolucao {
 
     public enum Situacao {
-        OK("Devolvido OK"), DANIFICADO("Danificado"), PERDIDO("Perdido");
+        OK("Devolvido OK"), DANIFICADO("Danificado"), PERDIDO("Perdido"),
+        NAO_DEVOLVIDO("Ainda não voltou");          // devolução parcial (UC16 FA02): continua pendente, NÃO é perda
 
         private final String nome;
         Situacao(String nome) { this.nome = nome; }
@@ -23,9 +24,9 @@ public class Devolucao {
     /** Uma linha da conferência: o produto, quantas unidades saíram, como voltaram e quanto cobrar (manual). */
     public static class ItemConferido {
         public final Catalogo.Item produto;
-        public final int qtd;                       // unidades que saíram na locação
+        public final int qtd;                       // unidades que saíram e ainda estão pendentes de conferência
         public Situacao situacao = Situacao.OK;
-        public int qtdAfetada = 0;                  // quantas das unidades estão danificadas/perdidas
+        public int qtdAfetada = 0;                  // quantas das unidades estão danificadas/perdidas/ainda não voltaram
         public double valorCobrado = 0;             // digitado pela proprietária (0 = sem cobrança)
         public boolean indisponibilizar = false;    // dano: tira as unidades do estoque até serem reavaliadas
         public String observacao = "";              // descrição livre da ocorrência (ex.: "perna da cadeira quebrou")
@@ -37,7 +38,7 @@ public class Devolucao {
     }
 
     public final List<ItemConferido> itens = new ArrayList<>();
-    /** Qualquer pessoa identificada pode devolver (RN27/RN28): basta informar o nome. */
+    /** Qualquer pessoa identificada pode devolver (UC16): basta informar o nome. */
     public String devolvidoPor = "";
     /** Multa de atraso DIGITADA (o sistema não calcula nem sugere; 0 = sem cobrança). */
     public double multa = 0;
@@ -46,6 +47,9 @@ public class Devolucao {
         Map<Catalogo.Item, Integer> soma = new LinkedHashMap<>();
         for (Catalogo.Linha l : locacao.itens)
             for (Catalogo.Item p : l.item.produtos()) soma.merge(p, l.qtd * l.item.consumo(p), Integer::sum);
-        for (Map.Entry<Catalogo.Item, Integer> e : soma.entrySet()) itens.add(new ItemConferido(e.getKey(), e.getValue()));
+        for (Map.Entry<Catalogo.Item, Integer> e : soma.entrySet()) {
+            int pendente = e.getValue() - locacao.resolvidos.getOrDefault(e.getKey(), 0);   // já conferidos em devolução parcial
+            if (pendente > 0) itens.add(new ItemConferido(e.getKey(), pendente));
+        }
     }
 }

@@ -58,10 +58,10 @@ public class TelaRelatorios extends JPanel {
         this.app = app;
         this.ctrl = ctrl;
         this.usuario = usuario;
-        setBackground(TelaPrincipal.BRANCO);
-        setBorder(new EmptyBorder(14, 16, 16, 16));
+        setBackground(Tema.FUNDO);
+        setBorder(new EmptyBorder(24, 28, 24, 28));
 
-        add(TelaPrincipal.rotulo("Relatórios", Font.BOLD, 20), BorderLayout.NORTH);
+        add(TelaPrincipal.rotulo("Relatórios", Font.BOLD, 30), BorderLayout.NORTH);
 
         if (usuario == null || !usuario.ehAdmin()) {
             JLabel aviso = TelaPrincipal.rotulo("Acesso restrito: só o administrador emite relatórios.", Font.BOLD, 15);
@@ -77,17 +77,17 @@ public class TelaRelatorios extends JPanel {
         LocalDate hoje = LocalDate.now();
         tfDe.setText(Ui.data(hoje.withDayOfMonth(1)));
         tfAte.setText(Ui.data(hoje.withDayOfMonth(hoje.lengthOfMonth())));
-        cbTipo.setPreferredSize(new Dimension(300, 34));
-        cbFiltro.setPreferredSize(new Dimension(160, 34));
-        tfDe.setPreferredSize(new Dimension(110, 34));
-        tfAte.setPreferredSize(new Dimension(110, 34));
+        cbTipo.setPreferredSize(new Dimension(300, Tema.ALTURA));
+        cbFiltro.setPreferredSize(new Dimension(160, Tema.ALTURA));
+        tfDe.setPreferredSize(new Dimension(110, Tema.ALTURA));
+        tfAte.setPreferredSize(new Dimension(110, Tema.ALTURA));
         cbTipo.addActionListener(e -> ajustarFiltro());
 
         JButton gerar = Ui.botaoPreto("Gerar", 13);
-        gerar.setPreferredSize(new Dimension(100, 36));
+        gerar.setPreferredSize(new Dimension(100, Tema.ALTURA));
         gerar.addActionListener(e -> gerar());
-        btnCsv.setPreferredSize(new Dimension(130, 36));
-        btnPdf.setPreferredSize(new Dimension(130, 36));
+        btnCsv.setPreferredSize(new Dimension(130, Tema.ALTURA));
+        btnPdf.setPreferredSize(new Dimension(130, Tema.ALTURA));
         btnCsv.addActionListener(e -> exportar(true));
         btnPdf.addActionListener(e -> exportar(false));
         btnCsv.setEnabled(false);
@@ -95,24 +95,26 @@ public class TelaRelatorios extends JPanel {
 
         JPanel filtros = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         filtros.setOpaque(false);
+        filtros.setBorder(new EmptyBorder(0, -12, 0, 0));
         JPanel pt = Ui.bloco("Relatório", cbTipo), pd = Ui.bloco("De", tfDe), pa = Ui.bloco("Até", tfAte);
-        pt.setPreferredSize(new Dimension(300, 56));
-        pd.setPreferredSize(new Dimension(110, 56));
-        pa.setPreferredSize(new Dimension(110, 56));
+        pt.setPreferredSize(new Dimension(300, 66));
+        pd.setPreferredSize(new Dimension(118, 66));
+        pa.setPreferredSize(new Dimension(118, 66));
         filtros.add(pt);
         filtros.add(pd);
         filtros.add(pa);
         JPanel pf = Ui.bloco("Filtro", cbFiltro);
-        pf.setPreferredSize(new Dimension(150, 56));
+        pf.setPreferredSize(new Dimension(160, 66));
         filtros.add(pf);
-        filtros.add(gerar);
-        filtros.add(btnCsv);
-        filtros.add(btnPdf);
+        // os botões ficam na linha dos campos (um rótulo vazio em cima alinha as alturas)
+        for (JButton b : new JButton[]{(JButton) gerar, btnCsv, btnPdf}) {
+            JPanel pb = Ui.bloco(" ", b);
+            pb.setPreferredSize(new Dimension(b == gerar ? 100 : 130, 66));
+            filtros.add(pb);
+        }
 
         TelaClientes.estilizarTabela(tabela, 12, 6);
-        JScrollPane sp = new JScrollPane(tabela);
-        sp.setBorder(new LineBorder(TelaPrincipal.CINZA_LINHA, 1));
-        sp.getViewport().setBackground(TelaPrincipal.BRANCO);
+        JScrollPane sp = Ui.rolagem(tabela);
 
         lblCriterio.setForeground(TelaPrincipal.CINZA_TEXTO);
         JPanel cima = new JPanel(new GridLayout(2, 1, 0, 2));
@@ -178,7 +180,7 @@ public class TelaRelatorios extends JPanel {
             boolean tem = !atual.linhas.isEmpty();
             btnCsv.setEnabled(true);
             btnPdf.setEnabled(true);
-            msg.setText(tem ? " " : "Nenhum registro no período.");
+            msg.setText(tem ? " " : model.Mensagens.MSG007);
         } catch (RegraNegocioException e) {
             msg.setText("<html>" + e.getMessage().replace("\n", "<br>") + "</html>");
         }

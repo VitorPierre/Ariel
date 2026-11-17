@@ -14,7 +14,7 @@ import java.util.List;
  * VIEW: tela "Locações". Lista todas as locações (todas as etapas) com busca e filtro, e mostra
  * à direita o detalhe da selecionada: datas, valores, itens e pagamentos.
  * Botões: Quitar saldo (ou registrar entrada), Registrar retirada, Devolução, Excluir,
- * contrato e recibo em PDF (UC13), + Serviço (UC06) e Autorizar terceiro (UC20).
+ * contrato e recibo em PDF (UC13), + Serviço (UC06) e Autorizar terceiro (pessoa autorizada, UC03/UC05).
  * Não tem regra de negócio: tudo que decide vem do PainelController.
  */
 public class TelaLocacoes extends JPanel {
@@ -25,7 +25,7 @@ public class TelaLocacoes extends JPanel {
     private final PainelController ctrl;
     private final List<Locacao> visiveis = new ArrayList<>();
 
-    private final TelaPrincipal.Campo busca = new TelaPrincipal.Campo("Buscar por cliente, código ou item", 12);
+    private final TelaPrincipal.Campo busca = new TelaPrincipal.Campo("Buscar por cliente, código ou produto", 12);
     private final JComboBox<String> filtro = new JComboBox<>(FILTROS);
     private final ModeloLocacoes modelo = new ModeloLocacoes();
     private final JTable tabela = new JTable(modelo);
@@ -33,7 +33,7 @@ public class TelaLocacoes extends JPanel {
     private final JButton btnPagar = TelaPrincipal.botaoCinza("Quitar saldo", 12);
     private final JButton btnRetirar = TelaPrincipal.botaoCinza("Registrar retirada", 12);
     private final JButton btnDevolver = TelaPrincipal.botaoCinza("Devolução", 12);
-    private final JButton btnExcluir = TelaPrincipal.botaoCinza("Excluir", 12);
+    private final JButton btnExcluir = TelaPrincipal.botaoNeutro("Excluir", 12);
     private final JButton btnContrato = TelaPrincipal.botaoCinza("Contrato PDF", 12);
     private final JButton btnRecibo = TelaPrincipal.botaoCinza("Recibo PDF", 12);
     private final JButton btnServico = TelaPrincipal.botaoCinza("+ Serviço", 12);
@@ -44,17 +44,17 @@ public class TelaLocacoes extends JPanel {
         super(new BorderLayout());
         this.app = app;
         this.ctrl = ctrl;
-        setBackground(TelaPrincipal.BRANCO);
-        setBorder(new EmptyBorder(14, 16, 16, 16));
+        setBackground(Tema.FUNDO);
+        setBorder(new EmptyBorder(24, 28, 24, 28));
 
         // ----- cabeçalho: título, busca e filtro -----
         JPanel cab = new JPanel(new BorderLayout());
         cab.setOpaque(false);
         cab.setBorder(new EmptyBorder(0, 0, 14, 0));
-        cab.add(TelaPrincipal.rotulo("Locações", Font.BOLD, 20), BorderLayout.WEST);
+        cab.add(TelaPrincipal.rotulo("Locações", Font.BOLD, 30), BorderLayout.WEST);
         JPanel dir = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         dir.setOpaque(false);
-        busca.setPreferredSize(new Dimension(260, 36));
+        busca.setPreferredSize(new Dimension(260, Tema.ALTURA));
         busca.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(javax.swing.event.DocumentEvent e) { atualizar(); }
             public void removeUpdate(javax.swing.event.DocumentEvent e) { atualizar(); }
@@ -62,7 +62,7 @@ public class TelaLocacoes extends JPanel {
         });
         dir.add(busca);
         TelaPrincipal.estilizarCombo(filtro);
-        filtro.setPreferredSize(new Dimension(170, 36));
+        filtro.setPreferredSize(new Dimension(170, Tema.ALTURA));
         filtro.addActionListener(e -> atualizar());
         dir.add(filtro);
         cab.add(dir, BorderLayout.EAST);
@@ -70,24 +70,22 @@ public class TelaLocacoes extends JPanel {
 
         // ----- corpo: lista (esquerda) + detalhe (direita) -----
         TelaClientes.estilizarTabela(tabela, 12, 6);
-        int[] larguras = {55, 150, 85, 90, 90, 190};     // Código, Cliente, Etapa, Evento, Total, Situação
+        int[] larguras = {62, 140, 92, 100, 104, 180};     // Código, Cliente, Etapa, Evento, Total, Situação
         for (int i = 0; i < larguras.length; i++) tabela.getColumnModel().getColumn(i).setPreferredWidth(larguras[i]);
         tabela.getSelectionModel().addListSelectionListener(e -> { if (!e.getValueIsAdjusting()) mostrarDetalhe(); });
-        JScrollPane rolagem = new JScrollPane(tabela);
-        rolagem.setBorder(new LineBorder(TelaPrincipal.CINZA_BORDA, 2));
-        rolagem.getViewport().setBackground(TelaPrincipal.BRANCO);
+        JScrollPane rolagem = Ui.rolagem(tabela);
 
         detalhe.setEditable(false);
         detalhe.setLineWrap(true);           // quebra o texto na largura da caixa
         detalhe.setWrapStyleWord(true);
-        detalhe.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        detalhe.setBorder(new EmptyBorder(8, 10, 8, 10));
-        JScrollPane rolDet = new JScrollPane(detalhe);
-        rolDet.setBorder(new LineBorder(TelaPrincipal.CINZA_BORDA, 2));
+        detalhe.setFont(Tema.fonte(Font.PLAIN, 13));
+        detalhe.setForeground(Tema.TEXTO);
+        detalhe.setBorder(new EmptyBorder(0, 0, 0, 0));
+        JScrollPane rolDet = Ui.rolagem(detalhe);
 
-        JPanel botoes = new JPanel(new GridLayout(4, 2, 8, 8));
+        JPanel botoes = new JPanel(new GridLayout(4, 2, 10, 10));
         botoes.setOpaque(false);
-        botoes.setBorder(new EmptyBorder(10, 0, 0, 0));
+        botoes.setBorder(new EmptyBorder(12, 0, 0, 0));
         botoes.add(btnPagar);
         botoes.add(btnRetirar);
         botoes.add(btnDevolver);
@@ -105,20 +103,16 @@ public class TelaLocacoes extends JPanel {
         btnServico.addActionListener(e -> { Locacao l = selecionada(); if (l != null) app.adicionarServico(l); });
         btnTerceiro.addActionListener(e -> { Locacao l = selecionada(); if (l != null) app.autorizarTerceiro(l); });
 
-        JPanel lateral = new JPanel(new BorderLayout());
-        lateral.setOpaque(false);
-        lateral.setPreferredSize(new Dimension(350, 100));
-        lateral.add(TelaPrincipal.rotulo("DETALHE DA LOCAÇÃO", Font.BOLD, 12), BorderLayout.NORTH);
         JPanel miolo = new JPanel(new BorderLayout());
         miolo.setOpaque(false);
-        miolo.setBorder(new EmptyBorder(6, 0, 0, 0));
         miolo.add(rolDet, BorderLayout.CENTER);
         miolo.add(botoes, BorderLayout.SOUTH);
-        lateral.add(miolo, BorderLayout.CENTER);
+        JPanel lateral = Ui.caixa("DETALHE DA LOCAÇÃO", miolo);
+        lateral.setPreferredSize(new Dimension(340, 100));
 
-        JPanel corpo = new JPanel(new BorderLayout(16, 0));
+        JPanel corpo = new JPanel(new BorderLayout(20, 0));
         corpo.setOpaque(false);
-        corpo.add(rolagem, BorderLayout.CENTER);
+        corpo.add(Ui.secao(rolagem), BorderLayout.CENTER);
         corpo.add(lateral, BorderLayout.EAST);
         add(corpo, BorderLayout.CENTER);
 
@@ -165,14 +159,15 @@ public class TelaLocacoes extends JPanel {
     private void mostrarDetalhe() {
         Locacao l = selecionada();
         boolean tem = l != null;
-        btnPagar.setEnabled(tem && ctrl.rotuloPagamento(l) != null);
+        boolean admin = PainelController.podeRegistrarPagamento(app.usuario());   // UC07/UC13: só o Administrador
+        btnPagar.setEnabled(admin && tem && ctrl.rotuloPagamento(l) != null);
         btnPagar.setText(tem && ctrl.rotuloPagamento(l) != null ? ctrl.rotuloPagamento(l) : "Sem pagamento");
         btnRetirar.setEnabled(tem && l.etapa == Etapa.ORCAMENTO);
         btnDevolver.setEnabled(tem && l.etapa == Etapa.LOCADO);
         btnExcluir.setEnabled(tem);
         boolean confirmada = tem && !l.arquivada && (l.etapa != Etapa.ORCAMENTO || l.temEntrada());
-        btnContrato.setEnabled(confirmada);
-        btnRecibo.setEnabled(tem && !l.pagamentos.isEmpty());
+        btnContrato.setEnabled(admin && confirmada);
+        btnRecibo.setEnabled(admin && tem && !l.pagamentos.isEmpty());
         btnServico.setEnabled(tem && !l.arquivada && l.etapa != Etapa.DEVOLVIDO);
         btnTerceiro.setEnabled(tem && !l.arquivada && l.etapa == Etapa.ORCAMENTO && l.temEntrada());
         if (!tem) { detalhe.setText("Selecione uma locação na lista."); return; }

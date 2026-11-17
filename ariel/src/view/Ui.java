@@ -14,27 +14,67 @@ import java.time.format.DateTimeParseException;
 final class Ui {
     private Ui() { }
 
-    static final Color CINZA_PAINEL = new Color(0x666666);
-
     /** Caixa branca com borda e título pequeno em cima (como nos protótipos). */
     static JPanel caixa(String titulo, JComponent conteudo) {
-        JPanel p = new JPanel(new BorderLayout(0, 6));
+        JPanel p = new JPanel(new BorderLayout(0, 10));
         p.setBackground(TelaPrincipal.BRANCO);
-        p.setBorder(new CompoundBorder(new LineBorder(CINZA_PAINEL, 2), new EmptyBorder(8, 10, 10, 10)));
+        p.setBorder(new Tema.Arredondada(Tema.BORDA_SECAO, 1, Tema.RAIO_SECAO, 14, 16));   // seção: raio 18 px
         JLabel t = TelaPrincipal.rotulo(titulo, Font.BOLD, 12);
+        t.setFont(Tema.fonteSecao());
         t.setForeground(TelaPrincipal.CINZA_TEXTO);
         p.add(t, BorderLayout.NORTH);
         p.add(conteudo, BorderLayout.CENTER);
         return p;
     }
 
+    /** Seção sem título: cartão branco arredondado em volta do conteúdo (tabelas, listas). */
+    static JPanel secao(JComponent conteudo) {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(TelaPrincipal.BRANCO);
+        p.setBorder(new Tema.Arredondada(Tema.BORDA_SECAO, 1, Tema.RAIO_SECAO, 8, 10));
+        p.add(conteudo, BorderLayout.CENTER);
+        return p;
+    }
+
+    /** Rolagem "invisível" para tabela dentro de seção (a seção já tem a borda). */
+    static JScrollPane rolagem(JComponent c) {
+        JScrollPane sp = new JScrollPane(c);
+        sp.setBorder(null);
+        sp.getViewport().setBackground(TelaPrincipal.BRANCO);
+        sp.setBackground(TelaPrincipal.BRANCO);
+        return sp;
+    }
+
+    /** Empilha componentes na vertical, cada um na sua altura (botões e campos com 44 px, rótulos menores). */
+    static JPanel pilha(int espaco, JComponent... itens) {
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setOpaque(false);
+        for (int i = 0; i < itens.length; i++) {
+            JComponent c = itens[i];
+            c.setAlignmentX(Component.LEFT_ALIGNMENT);
+            c.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
+            if (i > 0) p.add(Box.createVerticalStrut(espaco));
+            p.add(c);
+        }
+        return p;
+    }
+
+    /** Espaço vertical fixo, para usar dentro de pilha(). */
+    static JComponent espaco(int altura) {
+        JPanel e = new JPanel();
+        e.setOpaque(false);
+        e.setPreferredSize(new Dimension(1, altura));
+        return e;
+    }
+
     /** Rótulo pequeno em cima de um campo. */
     static JPanel bloco(String titulo, JComponent campo) {
-        JPanel p = new JPanel(new BorderLayout(0, 3));
+        JPanel p = new JPanel(new BorderLayout(0, 5));          // rótulo ACIMA do campo (DESIGN.md 6.2)
         p.setOpaque(false);
-        JLabel l = TelaPrincipal.rotulo(titulo, Font.PLAIN, 11);
+        JLabel l = TelaPrincipal.rotulo(titulo, Font.PLAIN, 12);
         l.setForeground(TelaPrincipal.CINZA_TEXTO);
-        campo.setPreferredSize(new Dimension(100, 34));
+        campo.setPreferredSize(new Dimension(100, Tema.ALTURA));
         p.add(l, BorderLayout.NORTH);
         p.add(campo, BorderLayout.CENTER);
         return p;
@@ -78,36 +118,45 @@ final class Ui {
     /** Número com vírgula, duas casas (para preencher campos de valor). */
     static String numero(double v) { return String.format(TelaPrincipal.PT_BR, "%.2f", v).replace('.', ','); }
 
-    /** Botão escuro (ação principal). */
+    /** Botão principal (rosa): a ação que conclui a tela. Desabilitado, o Tema.Botao pinta em rosa claro. */
     static JButton botaoPreto(String texto, int tam) {
-        JButton b = new JButton(texto);
-        b.setFont(new Font("SansSerif", Font.BOLD, tam));
-        b.setFocusPainted(false);
-        b.setContentAreaFilled(false);
-        b.setOpaque(true);
-        b.setBackground(TelaPrincipal.PRETO);
-        b.setForeground(TelaPrincipal.BRANCO);
-        b.setBorder(new CompoundBorder(new LineBorder(TelaPrincipal.PRETO, 2), new EmptyBorder(0, 12, 0, 12)));
+        Tema.Botao b = new Tema.Botao(texto);
+        b.setFont(Tema.fonte(Font.BOLD, Math.max(tam, 13)));
+        b.setBackground(Tema.PRIMARIA);
+        b.setForeground(Color.WHITE);
+        b.setBorder(new EmptyBorder(0, 14, 0, 14));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent e) { if (b.isEnabled()) b.setBackground(new Color(0x444444)); }
-            public void mouseExited(java.awt.event.MouseEvent e)  { b.setBackground(TelaPrincipal.PRETO); }
+            public void mouseEntered(java.awt.event.MouseEvent e) { if (b.isEnabled()) b.setBackground(Tema.PRIMARIA_ESCURA); }
+            public void mouseExited(java.awt.event.MouseEvent e)  { b.setBackground(Tema.PRIMARIA); }
         });
         return b;
     }
 
     /** Botão de escolha (como 10% / 20% / 50%): preto quando marcado. */
     static JToggleButton botaoEscolha(String texto) {
-        JToggleButton b = new JToggleButton(texto);
-        b.setFont(new Font("SansSerif", Font.BOLD, 12));
+        JToggleButton b = new JToggleButton(texto) {
+            @Override protected void paintComponent(Graphics g0) {
+                Graphics2D g = (Graphics2D) g0.create();
+                Tema.suave(g);
+                java.awt.geom.RoundRectangle2D f = new java.awt.geom.RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 1, Tema.RAIO_CONTROLE * 2f, Tema.RAIO_CONTROLE * 2f);
+                g.setColor(getBackground());
+                g.fill(f);
+                g.setColor(isSelected() ? Tema.PRIMARIA : Tema.BORDA_FORTE);
+                g.draw(f);
+                g.dispose();
+                super.paintComponent(g0);
+            }
+        };
+        b.setFont(Tema.fonte(Font.BOLD, 14));
         b.setFocusPainted(false);
         b.setContentAreaFilled(false);
-        b.setOpaque(true);
-        b.setBorder(new CompoundBorder(new LineBorder(new Color(0x444444), 2), new EmptyBorder(0, 10, 0, 10)));
+        b.setOpaque(false);
+        b.setBorder(new EmptyBorder(0, 12, 0, 12));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         Runnable estilo = () -> {
-            b.setBackground(b.isSelected() ? TelaPrincipal.PRETO : TelaPrincipal.BRANCO);
-            b.setForeground(b.isSelected() ? TelaPrincipal.BRANCO : TelaPrincipal.PRETO);
+            b.setBackground(b.isSelected() ? Tema.PRIMARIA : Tema.BOTAO);
+            b.setForeground(b.isSelected() ? Color.WHITE : Tema.TEXTO);
         };
         b.addChangeListener(e -> estilo.run());
         estilo.run();

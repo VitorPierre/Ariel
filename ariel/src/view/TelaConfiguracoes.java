@@ -25,18 +25,18 @@ public class TelaConfiguracoes extends JPanel {
 
     // ----- meus dados -----
     private final TelaPrincipal.Campo tfNome = new TelaPrincipal.Campo("Nome", 13);
-    private final TelaPrincipal.Campo tfLogin = new TelaPrincipal.Campo("Nome de usuário", 13);
-    private final CampoSenha pfAtual = new CampoSenha("Senha atual (só para trocar a senha)", 13);
-    private final CampoSenha pfNova = new CampoSenha("Nova senha (mín. " + Regras.SENHA_MIN + " caracteres)", 13);
-    private final CampoSenha pfConfirma = new CampoSenha("Confirmar nova senha", 13);
+    private final TelaPrincipal.Campo tfLogin = new TelaPrincipal.Campo("login", 13);
+    private final CampoSenha pfAtual = new CampoSenha("", 13);
+    private final CampoSenha pfNova = new CampoSenha("", 13);
+    private final CampoSenha pfConfirma = new CampoSenha("", 13);
     private final JLabel msgMeus = TelaPrincipal.rotulo(" ", Font.BOLD, 12);
 
     // ----- novo usuário (administrador) -----
-    private final TelaPrincipal.Campo tfNovoNome = new TelaPrincipal.Campo("Nome do usuário", 13);
-    private final TelaPrincipal.Campo tfNovoLogin = new TelaPrincipal.Campo("Nome de usuário (login)", 13);
+    private final TelaPrincipal.Campo tfNovoNome = new TelaPrincipal.Campo("Nome e sobrenome", 13);
+    private final TelaPrincipal.Campo tfNovoLogin = new TelaPrincipal.Campo("login", 13);
     private final JComboBox<Perfil> cbPerfil = new JComboBox<>(Perfil.values());
-    private final CampoSenha pfNovaSenha = new CampoSenha("Senha (mín. " + Regras.SENHA_MIN + " caracteres)", 13);
-    private final CampoSenha pfNovaConfirma = new CampoSenha("Confirmar senha", 13);
+    private final CampoSenha pfNovaSenha = new CampoSenha("", 13);
+    private final CampoSenha pfNovaConfirma = new CampoSenha("", 13);
     private final JLabel msgNovo = TelaPrincipal.rotulo(" ", Font.BOLD, 12);
     private final List<Usuario> lista = new ArrayList<>();
     private final ModeloUsuarios modelo = new ModeloUsuarios();
@@ -46,17 +46,17 @@ public class TelaConfiguracoes extends JPanel {
         this.ctrl = ctrl;
         this.eu = eu;
         this.aoAlterarMeusDados = aoAlterarMeusDados;
-        setBackground(TelaPrincipal.BRANCO);
-        setBorder(new EmptyBorder(14, 16, 16, 16));
+        setBackground(Tema.FUNDO);
+        setBorder(new EmptyBorder(24, 28, 24, 28));
 
         JPanel cab = new JPanel(new BorderLayout());
         cab.setOpaque(false);
         cab.setBorder(new EmptyBorder(0, 0, 14, 0));
-        cab.add(TelaPrincipal.rotulo("Configurações", Font.BOLD, 20), BorderLayout.WEST);
+        cab.add(TelaPrincipal.rotulo("Configurações", Font.BOLD, 30), BorderLayout.WEST);
         add(cab, BorderLayout.NORTH);
 
         // administrador vê duas colunas (meus dados + usuários); funcionário vê só "meus dados"
-        JPanel corpo = new JPanel(new GridLayout(1, eu.ehAdmin() ? 2 : 1, 16, 0));
+        JPanel corpo = new JPanel(new GridLayout(1, eu.ehAdmin() ? 2 : 1, 20, 0));
         corpo.setOpaque(false);
         corpo.add(criarMeusDados());
         if (eu.ehAdmin()) corpo.add(criarUsuarios());
@@ -68,44 +68,59 @@ public class TelaConfiguracoes extends JPanel {
         atualizar();
     }
 
-    /** Caixa com título, no estilo das outras telas (borda cinza escura). */
+    /** Seção com título (DESIGN.md 5 e 6): cartão branco arredondado, rótulo de seção em cima. */
     private JPanel caixa(String titulo) {
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setBackground(TelaPrincipal.BRANCO);
-        p.setBorder(new CompoundBorder(new LineBorder(new Color(0x666666), 2), new EmptyBorder(10, 12, 12, 12)));
-        JLabel t = TelaPrincipal.rotulo(titulo, Font.BOLD, 12);
-        t.setAlignmentX(Component.LEFT_ALIGNMENT);
-        p.add(t);
-        p.add(Box.createVerticalStrut(8));
+        p.setBorder(new Tema.Arredondada(Tema.BORDA_SECAO, 1, Tema.RAIO_SECAO, 14, 16));
+        p.add(tituloSecao(titulo));
+        p.add(Box.createVerticalStrut(10));
         return p;
     }
 
-    private void adicionar(JPanel p, JComponent c) {
-        c.setAlignmentX(Component.LEFT_ALIGNMENT);
-        c.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
-        c.setPreferredSize(new Dimension(100, 36));
-        p.add(c);
-        p.add(Box.createVerticalStrut(8));
+    private static JLabel tituloSecao(String titulo) {
+        JLabel t = TelaPrincipal.rotulo(titulo, Font.BOLD, 12);
+        t.setFont(Tema.fonteSecao());
+        t.setForeground(Tema.TEXTO_SUAVE);
+        t.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return t;
+    }
+
+    /** Uma linha do formulário: cada campo com o rótulo ACIMA; dois campos dividem a largura. */
+    private void linha(JPanel p, String r1, JComponent c1, String r2, JComponent c2) {
+        JPanel l = new JPanel(new GridLayout(1, c2 == null ? 1 : 2, 12, 0));
+        l.setOpaque(false);
+        l.add(Ui.bloco(r1, c1));
+        if (c2 != null) l.add(Ui.bloco(r2, c2));
+        l.setAlignmentX(Component.LEFT_ALIGNMENT);
+        l.setMaximumSize(new Dimension(Integer.MAX_VALUE, l.getPreferredSize().height));
+        p.add(l);
+        p.add(Box.createVerticalStrut(12));
+    }
+
+    private void botao(JPanel p, JButton b) {
+        b.setAlignmentX(Component.LEFT_ALIGNMENT);
+        b.setMaximumSize(new Dimension(Integer.MAX_VALUE, Tema.ALTURA));
+        p.add(b);
     }
 
     private JPanel criarMeusDados() {
         JPanel p = caixa("MEUS DADOS");
-        adicionar(p, tfNome);
-        adicionar(p, tfLogin);
-        JLabel dica = TelaPrincipal.rotulo("Para trocar a senha, preencha os três campos abaixo:", Font.PLAIN, 11);
-        dica.setForeground(TelaPrincipal.CINZA_TEXTO);
+        linha(p, "Nome", tfNome, "Nome de usuário (login)", tfLogin);
+        JLabel dica = TelaPrincipal.rotulo("Para trocar a senha, preencha os três campos abaixo.", Font.PLAIN, 12);
+        dica.setForeground(Tema.TEXTO_SUAVE);
         dica.setAlignmentX(Component.LEFT_ALIGNMENT);
         p.add(dica);
-        p.add(Box.createVerticalStrut(6));
-        adicionar(p, pfAtual);
-        adicionar(p, pfNova);
-        adicionar(p, pfConfirma);
+        p.add(Box.createVerticalStrut(10));
+        linha(p, "Senha atual", pfAtual, null, null);
+        linha(p, "Nova senha (mín. " + Regras.SENHA_MIN + " caracteres)", pfNova, "Confirmar nova senha", pfConfirma);
         msgMeus.setAlignmentX(Component.LEFT_ALIGNMENT);
+        msgMeus.setForeground(Tema.PRIMARIA_ESCURA);
         p.add(msgMeus);
         p.add(Box.createVerticalStrut(8));
-        JButton salvar = TelaPrincipal.botaoCinza("Salvar meus dados", 13);
-        adicionar(p, salvar);
+        JButton salvar = TelaPrincipal.botaoPrimario("Salvar meus dados", 13);
+        botao(p, salvar);
         salvar.addActionListener(e -> salvarMeusDados());
         return p;
     }
@@ -114,30 +129,25 @@ public class TelaConfiguracoes extends JPanel {
         JPanel p = caixa("USUÁRIOS DO SISTEMA");
         JTable tabela = new JTable(modelo);
         TelaClientes.estilizarTabela(tabela, 12, 6);
-        JScrollPane rolagem = new JScrollPane(tabela);
-        rolagem.setBorder(new LineBorder(TelaPrincipal.CINZA_LINHA, 1));
-        rolagem.getViewport().setBackground(TelaPrincipal.BRANCO);
+        JScrollPane rolagem = Ui.rolagem(tabela);
         rolagem.setAlignmentX(Component.LEFT_ALIGNMENT);
-        rolagem.setPreferredSize(new Dimension(100, 100));
-        rolagem.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
+        rolagem.setPreferredSize(new Dimension(100, 150));
+        rolagem.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
         p.add(rolagem);
-        p.add(Box.createVerticalStrut(12));
+        p.add(Box.createVerticalStrut(16));
 
-        JLabel t = TelaPrincipal.rotulo("NOVO USUÁRIO", Font.BOLD, 12);
-        t.setAlignmentX(Component.LEFT_ALIGNMENT);
-        p.add(t);
-        p.add(Box.createVerticalStrut(8));
-        adicionar(p, tfNovoNome);
-        adicionar(p, tfNovoLogin);
+        p.add(tituloSecao("NOVO USUÁRIO"));
+        p.add(Box.createVerticalStrut(10));
         TelaPrincipal.estilizarCombo(cbPerfil);
-        adicionar(p, cbPerfil);
-        adicionar(p, pfNovaSenha);
-        adicionar(p, pfNovaConfirma);
+        linha(p, "Nome", tfNovoNome, "Nome de usuário (login)", tfNovoLogin);
+        linha(p, "Perfil", cbPerfil, null, null);
+        linha(p, "Senha (mín. " + Regras.SENHA_MIN + " caracteres)", pfNovaSenha, "Confirmar senha", pfNovaConfirma);
         msgNovo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        msgNovo.setForeground(Tema.PRIMARIA_ESCURA);
         p.add(msgNovo);
         p.add(Box.createVerticalStrut(8));
         JButton criar = TelaPrincipal.botaoCinza("+ Criar usuário", 13);
-        adicionar(p, criar);
+        botao(p, criar);
         criar.addActionListener(e -> criarUsuario());
         return p;
     }
@@ -164,7 +174,7 @@ public class TelaConfiguracoes extends JPanel {
             atualizar();
             msgMeus.setText("Dados salvos.");
         } catch (RegraNegocioException e) {
-            msgMeus.setText("ALERTA: " + e.getMessage());
+            msgMeus.setText("<html>" + e.getMessage().replace("\n", "<br>") + "</html>");
         }
     }
 
@@ -179,7 +189,7 @@ public class TelaConfiguracoes extends JPanel {
             atualizar();
             msgNovo.setText("Usuário \"" + u.login() + "\" criado.");
         } catch (RegraNegocioException e) {
-            msgNovo.setText("ALERTA: " + e.getMessage());
+            msgNovo.setText("<html>" + e.getMessage().replace("\n", "<br>") + "</html>");
         }
     }
 

@@ -17,7 +17,8 @@ public class Locacao {
     public final List<Catalogo.Linha> itens;
     public final List<Pagamento> pagamentos = new ArrayList<>();
     public final List<Ocorrencia> ocorrencias = new ArrayList<>();
-    public boolean arquivada = false;     // orçamento vencido sem entrada: sai do painel (regra 3)
+    public boolean arquivada = false;     // orçamento vencido ou cancelado: sai do painel, fica no histórico
+    public boolean ocultaNoPainel = false; // devolvida e quitada que o usuário tirou do painel: continua em Locações e relatórios
     public String retiradoPor = "";
     public String devolvidoPor = "";
 
@@ -25,11 +26,22 @@ public class Locacao {
     public LocalDate emissao;                                   // dia em que o orçamento foi emitido (validade = emissão + 30 dias)
     public String modalidade = "Retira";                        // Retira / Entrega / Entrega + montagem
     public String motivoArquivo = "";                           // "Expirado" ou "Cancelado" quando arquivada
-    public String autorizadoInadimplentePor = "";               // responsável que autorizou a locação de cliente inadimplente (UC22)
+    public String autorizadoInadimplentePor = "";               // responsável que autorizou a locação de cliente inadimplente (decisão da equipe: autorização registrada)
     public boolean contratoPendente = false;                    // falha ao gerar o PDF (MSG016): tentar de novo
     public final List<ServicoContratado> servicos = new ArrayList<>();
-    public final List<Cliente.Autorizada> autorizados = new ArrayList<>();   // terceiros autorizados a RETIRAR nesta locação (UC20)
+    public final List<Cliente.Autorizada> autorizados = new ArrayList<>();   // terceiros autorizados a RETIRAR nesta locação (pessoa autorizada, UC03/UC05)
     public final List<Documento> documentos = new ArrayList<>();
+    /** Devolução parcial (UC16 FA02): unidades de cada produto já conferidas (voltaram OK/danificadas ou perdidas). */
+    public final java.util.Map<Catalogo.Item, Integer> resolvidos = new java.util.LinkedHashMap<>();
+    /** Registros das devoluções parciais (data, quem devolveu e o que ainda falta). */
+    public final List<String> devolucoesParciais = new ArrayList<>();
+
+    /** Unidades do produto que saíram nesta locação e ainda não foram conferidas. */
+    public int pendentesDe(Catalogo.Item produto) {
+        int saiu = 0;
+        for (Catalogo.Linha l : itens) saiu += l.qtd * l.item.consumo(produto);
+        return Math.max(0, saiu - resolvidos.getOrDefault(produto, 0));
+    }
 
     public Locacao(int id, Cliente cliente, Etapa etapa, LocalDate evento, LocalDate validade,
                    LocalDate retirada, LocalDate devolucao, LocalDate devolvidoEm,
@@ -105,11 +117,11 @@ public class Locacao {
 
     public boolean temSaldo() { return saldo() > 0.005; }
 
-    /** A entrada paga é o que reserva a data (regra 4 do minimundo). */
+    /** A entrada paga é o que reserva a data (UC05). */
     public boolean temEntrada() { return pagoItens() > 0.005; }
 
     public boolean temOcorrencia() { return !ocorrencias.isEmpty(); }
 
-    /** Finalizada = devolvida, conferida e sem valores pendentes (regra 11). */
+    /** Finalizada = devolvida, conferida e sem valores pendentes (UC05 FA05). */
     public boolean finalizada() { return etapa == Etapa.DEVOLVIDO && !temSaldo(); }
 }

@@ -1,6 +1,7 @@
 package view;
 
 import controller.CatalogoController;
+import controller.ClienteController;
 import controller.PainelController;
 import controller.RelatorioController;
 import controller.UsuarioController;
@@ -25,7 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * VIEW: janela principal - Ariel · Conto de Fadas (Swing, preto e branco).
+ * VIEW: janela principal - Ariel · Conto de Fadas (Swing, visual rosa e branco do DESIGN.md).
  *
  * Estrutura MVC do projeto:
  *   model       -> dados (Cliente, Locacao, Usuario...), sem nada de tela
@@ -44,20 +45,20 @@ import java.util.Map;
  */
 public class TelaPrincipal extends JFrame {
 
-    // ===== Paleta (preto, branco e tons de cinza) =====
-    static final Color PRETO       = Color.BLACK;
-    static final Color BRANCO      = Color.WHITE;
-    static final Color BORDA_CLARA = new Color(0xE3E3E3);   // moldura clara da janela
-    static final Color BORDA_FINA  = new Color(0xBDBDBD);
-    static final Color CINZA_SIDE  = new Color(0xEEEEEE);
-    static final Color CINZA_COL   = new Color(0xF5F5F5);
-    static final Color CINZA_CAB   = new Color(0xE8E8E8);
-    static final Color CINZA_BTN   = new Color(0xD9D9D9);
-    static final Color CINZA_SEL   = new Color(0xCCCCCC);
-    static final Color CINZA_HOVER = new Color(0xEBEBEB);
-    static final Color CINZA_TEXTO = new Color(0x555555);
-    static final Color CINZA_LINHA = new Color(0xC8C8C8);
-    static final Color CINZA_BORDA = new Color(0x555555);
+    // ===== Paleta: vem de Tema (azul + creme). Os nomes antigos continuam para as outras telas. =====
+    static final Color PRETO       = Tema.TEXTO;         // texto e contornos escuros
+    static final Color BRANCO      = Tema.SUPERFICIE;
+    static final Color BORDA_CLARA = Tema.MENU;          // barra de título da janela
+    static final Color BORDA_FINA  = Tema.BORDA_MEDIA;
+    static final Color CINZA_SIDE  = Tema.MENU;
+    static final Color CINZA_COL   = Tema.COLUNA;
+    static final Color CINZA_CAB   = Tema.CABECALHO;
+    static final Color CINZA_BTN   = Tema.BOTAO;
+    static final Color CINZA_SEL   = Tema.SELECAO;
+    static final Color CINZA_HOVER = Tema.HOVER;
+    static final Color CINZA_TEXTO = Tema.TEXTO_SUAVE;
+    static final Color CINZA_LINHA = Tema.LINHA_TABELA;   // divisória entre linhas de tabela
+    static final Color CINZA_BORDA = Tema.BORDA_FORTE;
 
     // ===== Datas e moeda (padrão brasileiro) =====
     static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
@@ -66,19 +67,6 @@ public class TelaPrincipal extends JFrame {
             DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
     static final DateTimeFormatter FMT_EXTENSO = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' uuuu", PT_BR);
     static final NumberFormat MOEDA = NumberFormat.getCurrencyInstance(PT_BR);
-
-    // Barras de rolagem em cinza (o padrão do Java é azulado e quebraria o preto e branco)
-    static {
-        javax.swing.plaf.ColorUIResource cinza = new javax.swing.plaf.ColorUIResource(0xBDBDBD);
-        UIManager.put("ScrollBarUI", "javax.swing.plaf.basic.BasicScrollBarUI");
-        UIManager.put("ScrollBar.thumb", cinza);
-        UIManager.put("ScrollBar.thumbShadow", new javax.swing.plaf.ColorUIResource(0x777777));
-        UIManager.put("ScrollBar.thumbHighlight", new javax.swing.plaf.ColorUIResource(0xF2F2F2));
-        UIManager.put("ScrollBar.thumbDarkShadow", new javax.swing.plaf.ColorUIResource(0x000000));
-        UIManager.put("ScrollBar.track", new javax.swing.plaf.ColorUIResource(0xEEEEEE));
-        UIManager.put("ScrollBar.trackHighlight", new javax.swing.plaf.ColorUIResource(0xDDDDDD));
-        UIManager.put("ScrollBar.width", 14);
-    }
 
     static final String[] MENU = {"Painel", "Clientes", "Catálogo", "Orçamentos",
             "Locações", "Devoluções", "Relatórios", "Configurações"};
@@ -116,6 +104,7 @@ public class TelaPrincipal extends JFrame {
     private TelaOrcamentos telaOrcamentos;
     private TelaRelatorios telaRelatorios;
     private final CatalogoController catalogo;       // CONTROLLER do catálogo
+    private final ClienteController clientesCtrl;     // CONTROLLER do cadastro de clientes
     private final RelatorioController relatorios;    // CONTROLLER dos relatórios
     private TelaConfiguracoes telaConfig;
     private JLabel logado;                // "nome / perfil" no rodapé do menu
@@ -129,11 +118,13 @@ public class TelaPrincipal extends JFrame {
 
     public TelaPrincipal(PainelController ctrl, UsuarioController usuarios, Usuario usuario, Runnable aoSair) {
         super("Ariel · Conto de Fadas");
+        setIconImage(Logo.imagem());
         this.ctrl = ctrl;
         this.usuarios = usuarios;
         this.usuario = usuario;
         this.aoSair = aoSair;
         this.catalogo = new CatalogoController(ctrl);
+        this.clientesCtrl = new ClienteController(ctrl);
         this.relatorios = new RelatorioController(ctrl);
         setUndecorated(true);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -143,16 +134,14 @@ public class TelaPrincipal extends JFrame {
         // moldura clara em volta da tela
         JPanel raiz = new JPanel(new BorderLayout());
         raiz.setBackground(BORDA_CLARA);
-        raiz.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(BORDA_FINA, 1),
-                new EmptyBorder(0, 6, 6, 6)));
+        raiz.setBorder(new LineBorder(BORDA_FINA, 1));
         setContentPane(raiz);
 
         raiz.add(criarBarraTitulo(), BorderLayout.NORTH);
 
         JPanel conteudo = new JPanel(new BorderLayout());
-        conteudo.setBackground(BRANCO);
-        conteudo.setBorder(new LineBorder(PRETO, 2));
+        conteudo.setBackground(Tema.FUNDO);
+        conteudo.setBorder(null);
         conteudo.add(criarSidebar(), BorderLayout.WEST);
         conteudo.add(criarPaginas(), BorderLayout.CENTER);
         raiz.add(conteudo, BorderLayout.CENTER);
@@ -204,8 +193,8 @@ public class TelaPrincipal extends JFrame {
 
     // ================= Navegação entre telas =================
     private JComponent criarPaginas() {
-        paginas.setBackground(BRANCO);
-        telaClientes = new TelaClientes(this, ctrl);
+        paginas.setBackground(Tema.FUNDO);
+        telaClientes = new TelaClientes(this, clientesCtrl);
         telaLocacoes = new TelaLocacoes(this, ctrl);
         telaDevolucoes = new TelaDevolucoes(this, ctrl, usuario);
         telaCatalogo = new TelaCatalogo(this, ctrl, catalogo);
@@ -233,12 +222,10 @@ public class TelaPrincipal extends JFrame {
     private JComponent criarPlaceholder(String nome) {
         JPanel p = new JPanel(new BorderLayout());
         p.setBackground(BRANCO);
-        p.setBorder(new EmptyBorder(14, 16, 16, 16));
-        p.add(rotulo(nome, Font.BOLD, 20), BorderLayout.NORTH);
+        p.setBorder(new EmptyBorder(24, 28, 24, 28));
+        p.add(rotulo(nome, Font.BOLD, 30), BorderLayout.NORTH);
 
-        JPanel caixa = new JPanel(new GridBagLayout());
-        caixa.setBackground(CINZA_COL);
-        caixa.setBorder(new DashedBorder(CINZA_BORDA, 2));
+        JPanel caixa = new Tema.Painel(new GridBagLayout(), CINZA_COL, Tema.BORDA, 16);
         JLabel msg = rotulo("Tela de " + nome.toLowerCase(PT_BR) + " ainda em construção", Font.PLAIN, 13);
         msg.setForeground(CINZA_TEXTO);
         caixa.add(msg);
@@ -283,14 +270,13 @@ public class TelaPrincipal extends JFrame {
         JPanel barra = new JPanel(new BorderLayout());
         barra.setBackground(BORDA_CLARA);
         barra.setBorder(new EmptyBorder(4, 6, 4, 0));
-        barra.setPreferredSize(new Dimension(10, 34));
+        barra.setPreferredSize(new Dimension(10, Tema.ALTURA));
 
         JLabel titulo = tituloJanela;
         titulo.setForeground(CINZA_TEXTO);
         barra.add(titulo, BorderLayout.WEST);
 
-        JButton fechar = new JButton("✕");
-        fechar.setFont(new Font("SansSerif", Font.BOLD, 14));
+        JButton fechar = new JButton(new IconeFechar());
         fechar.setFocusPainted(false);
         fechar.setContentAreaFilled(false);
         fechar.setOpaque(true);
@@ -300,7 +286,7 @@ public class TelaPrincipal extends JFrame {
         fechar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         fechar.setToolTipText("Fechar (Esc)");
         fechar.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { fechar.setBackground(PRETO); fechar.setForeground(BRANCO); }
+            public void mouseEntered(MouseEvent e) { fechar.setBackground(Tema.ALERTA); fechar.setForeground(BRANCO); }
             public void mouseExited(MouseEvent e)  { fechar.setBackground(BORDA_CLARA); fechar.setForeground(PRETO); }
         });
         fechar.addActionListener(e -> dispose());
@@ -373,6 +359,49 @@ public class TelaPrincipal extends JFrame {
 
     boolean emTelaCheia() { return telaCheia; }
 
+    /** Seta das caixas de seleção. */
+    private static class IconeSeta implements Icon {
+        public int getIconWidth() { return 12; }
+        public int getIconHeight() { return 8; }
+        public void paintIcon(Component c, Graphics g0, int x, int y) {
+            Graphics2D g = (Graphics2D) g0.create();
+            Tema.suave(g);
+            g.setColor(Tema.PRIMARIA);
+            g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.drawLine(x + 2, y + 2, x + 6, y + 6);
+            g.drawLine(x + 6, y + 6, x + 10, y + 2);
+            g.dispose();
+        }
+    }
+
+    /** Ícone "X" desenhado. */
+    private static class IconeFechar implements Icon {
+        public int getIconWidth() { return 14; }
+        public int getIconHeight() { return 14; }
+        public void paintIcon(Component c, Graphics g0, int x, int y) {
+            Graphics2D g = (Graphics2D) g0.create();
+            Tema.suave(g);
+            g.setColor(c.getForeground());
+            g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.drawLine(x + 2, y + 2, x + 11, y + 11);
+            g.drawLine(x + 11, y + 2, x + 2, y + 11);
+            g.dispose();
+        }
+    }
+
+    /** Alça de arrastar do cartão: seis pontinhos. */
+    private static class IconeAlca implements Icon {
+        public int getIconWidth() { return 12; }
+        public int getIconHeight() { return 16; }
+        public void paintIcon(Component c, Graphics g0, int x, int y) {
+            Graphics2D g = (Graphics2D) g0.create();
+            Tema.suave(g);
+            g.setColor(Tema.BORDA_FORTE);
+            for (int col = 0; col < 2; col++) for (int lin = 0; lin < 3; lin++) g.fillOval(x + 2 + col * 5, y + 2 + lin * 5, 3, 3);
+            g.dispose();
+        }
+    }
+
     /** Ícone desenhado (sem depender de fonte): quadrado com cantos = entrar; dois quadrados = sair. */
     private class IconeTelaCheia implements Icon {
         public int getIconWidth() { return 16; }
@@ -401,29 +430,34 @@ public class TelaPrincipal extends JFrame {
         side.setBackground(CINZA_SIDE);
         side.setPreferredSize(new Dimension(190, 10));
         side.setBorder(BorderFactory.createCompoundBorder(
-                new MatteBorder(0, 0, 0, 2, new Color(0x8A8A8A)),
+                new MatteBorder(0, 0, 0, 2, Tema.BORDA_MEDIA),
                 new EmptyBorder(16, 12, 12, 12)));
 
-        JLabel marca = new JLabel("<html>Ariel · Conto de<br>Fadas</html>");
-        marca.setFont(new Font("SansSerif", Font.BOLD, 15));
-        marca.setAlignmentX(Component.LEFT_ALIGNMENT);
-        marca.setBorder(new EmptyBorder(0, 4, 0, 0));
-        side.add(marca);
-        side.add(Box.createVerticalStrut(22));
+        JPanel topo = new JPanel(new BorderLayout());          // logo + nome, centralizados na barra lateral
+        topo.setOpaque(false);
+        topo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        topo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 170));
+        JLabel marca = new JLabel(Logo.icone(96), SwingConstants.CENTER);
+        topo.add(marca, BorderLayout.CENTER);
+        JLabel sub = new JLabel("CONTO DE FADAS", SwingConstants.CENTER);
+        sub.setFont(Tema.fonte(Font.PLAIN, 10));
+        sub.setForeground(Tema.TEXTO_SUAVE);
+        sub.setBorder(new EmptyBorder(6, 0, 0, 0));
+        topo.add(sub, BorderLayout.SOUTH);
+        side.add(topo);
+        side.add(Box.createVerticalStrut(24));
 
         for (int i = 0; i < MENU.length; i++) {
             final int idx = i;
-            JButton b = new JButton(MENU[i]);
-            b.setFont(new Font("SansSerif", Font.PLAIN, 13));
+            Tema.Botao b = new Tema.Botao(MENU[i]);
+            b.raio = 10;
+            b.setFont(Tema.fonte(Font.PLAIN, 13));
             b.setHorizontalAlignment(SwingConstants.LEFT);
-            b.setFocusPainted(false);
-            b.setContentAreaFilled(false);
-            b.setOpaque(true);
             b.setForeground(PRETO);
             b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             b.setAlignmentX(Component.LEFT_ALIGNMENT);
-            b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
-            b.setPreferredSize(new Dimension(150, 32));
+            b.setMaximumSize(new Dimension(Integer.MAX_VALUE, Tema.ALTURA));
+            b.setPreferredSize(new Dimension(150, Tema.ALTURA));
             b.addMouseListener(new MouseAdapter() {
                 public void mouseEntered(MouseEvent e) { estiloMenu(idx, true); }
                 public void mouseExited(MouseEvent e)  { estiloMenu(idx, false); }
@@ -431,16 +465,15 @@ public class TelaPrincipal extends JFrame {
             b.addActionListener(e -> mostrarPagina(idx));
             botoesMenu[i] = b;
             side.add(b);
-            side.add(Box.createVerticalStrut(9));
+            side.add(Box.createVerticalStrut(4));
         }
         for (int k = 0; k < MENU.length; k++) estiloMenu(k, false);
         side.add(Box.createVerticalGlue());
 
         // Caixa com a data de hoje (atualiza sozinha quando o dia vira)
-        JPanel boxHoje = new JPanel();
+        Tema.Painel boxHoje = new Tema.Painel(null, Tema.ROSA_CLARO, null, Tema.RAIO_CARTAO);   // caixa "Hoje": rosa claro, sem borda
         boxHoje.setLayout(new BoxLayout(boxHoje, BoxLayout.Y_AXIS));
-        boxHoje.setBackground(BRANCO);
-        boxHoje.setBorder(new CompoundBorder(new LineBorder(new Color(0x444444), 2), new EmptyBorder(8, 10, 8, 10)));
+        boxHoje.setBorder(new EmptyBorder(9, 12, 9, 12));
         boxHoje.setAlignmentX(Component.LEFT_ALIGNMENT);
         boxHoje.setMaximumSize(new Dimension(Integer.MAX_VALUE, 78));
         boxHoje.setToolTipText("Data de hoje — atualiza sozinha quando o dia muda");
@@ -463,7 +496,8 @@ public class TelaPrincipal extends JFrame {
         side.add(logado);
         JButton btnSair = botaoCinza("Sair", 12);
         btnSair.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btnSair.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        btnSair.setMaximumSize(new Dimension(Integer.MAX_VALUE, Tema.ALTURA));
+        btnSair.setPreferredSize(new Dimension(150, Tema.ALTURA));
         btnSair.addActionListener(e -> sair());
         side.add(btnSair);
         return side;
@@ -471,26 +505,27 @@ public class TelaPrincipal extends JFrame {
 
     private void estiloMenu(int i, boolean hover) {
         JButton b = botoesMenu[i];
+        b.setBorder(new EmptyBorder(0, 14, 0, 10));
         if (i == menuSelecionado) {
-            b.setBackground(CINZA_SEL);
-            b.setBorder(new CompoundBorder(new LineBorder(PRETO, 2), new EmptyBorder(0, 8, 0, 8)));
-            b.setFont(new Font("SansSerif", Font.BOLD, 13));
+            b.setBackground(Tema.PRIMARIA);
+            b.setForeground(Color.WHITE);
+            b.setFont(Tema.fonte(Font.BOLD, 13));
         } else if (hover) {
-            b.setBackground(CINZA_HOVER);
-            b.setBorder(new CompoundBorder(new LineBorder(PRETO, 1), new EmptyBorder(1, 9, 1, 9)));
-            b.setFont(new Font("SansSerif", Font.PLAIN, 13));
+            b.setBackground(Tema.SELECAO);
+            b.setForeground(Tema.PRIMARIA_ESCURA);
+            b.setFont(Tema.fonte(Font.PLAIN, 13));
         } else {
-            b.setBackground(CINZA_COL);
-            b.setBorder(new CompoundBorder(new DashedBorder(new Color(0x9A9A9A), 1), new EmptyBorder(0, 9, 0, 9)));
-            b.setFont(new Font("SansSerif", Font.PLAIN, 13));
+            b.setBackground(Tema.MENU);
+            b.setForeground(PRETO);
+            b.setFont(Tema.fonte(Font.PLAIN, 13));
         }
     }
 
     // ================= Painel principal =================
     private JComponent criarAreaPrincipal() {
         JPanel area = new JPanel(new BorderLayout());
-        area.setBackground(BRANCO);
-        area.setBorder(new EmptyBorder(14, 16, 16, 16));
+        area.setBackground(Tema.FUNDO);
+        area.setBorder(new EmptyBorder(24, 28, 24, 28));
 
         JPanel topo = new JPanel();
         topo.setLayout(new BoxLayout(topo, BoxLayout.Y_AXIS));
@@ -499,13 +534,13 @@ public class TelaPrincipal extends JFrame {
         // título + busca + botão
         JPanel cab = new JPanel(new BorderLayout());
         cab.setOpaque(false);
-        tituloPagina.setFont(new Font("SansSerif", Font.BOLD, 20));
+        tituloPagina.setFont(Tema.titulo(Font.BOLD, 30));
         cab.add(tituloPagina, BorderLayout.WEST);
 
         JPanel direita = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         direita.setOpaque(false);
         Campo busca = new Campo("Buscar cliente, item ou reserva", 12);
-        busca.setPreferredSize(new Dimension(230, 36));
+        busca.setPreferredSize(new Dimension(230, Tema.ALTURA));
         busca.getDocument().addDocumentListener(new DocumentListener() {
             void mudou() { filtro = busca.getText().trim().toLowerCase(); for (Coluna c : colunas) c.atualizar(); }
             public void insertUpdate(DocumentEvent e) { mudou(); }
@@ -514,8 +549,8 @@ public class TelaPrincipal extends JFrame {
         });
         direita.add(busca);
 
-        JButton novo = botaoCinza("+ Novo orçamento", 13);
-        novo.setPreferredSize(new Dimension(160, 36));
+        JButton novo = botaoPrimario("+ Novo orçamento", 13);
+        novo.setPreferredSize(new Dimension(160, Tema.ALTURA));
         novo.addActionListener(e -> novoOrcamento());
         direita.add(novo);
         cab.add(direita, BorderLayout.EAST);
@@ -525,8 +560,8 @@ public class TelaPrincipal extends JFrame {
         // cartões de resumo (GridLayout 1x4)
         JPanel stats = new JPanel(new GridLayout(1, 4, 14, 0));
         stats.setOpaque(false);
-        stats.setPreferredSize(new Dimension(10, 58));
-        stats.setMaximumSize(new Dimension(Integer.MAX_VALUE, 58));
+        stats.setPreferredSize(new Dimension(10, 74));
+        stats.setMaximumSize(new Dimension(Integer.MAX_VALUE, 74));
         for (int i = 0; i < 4; i++) stats.add(criarStat(i));
         topo.add(stats);
         topo.add(Box.createVerticalStrut(12));
@@ -558,28 +593,23 @@ public class TelaPrincipal extends JFrame {
     }
 
     private JComponent criarStat(int i) {
-        JPanel p = new JPanel();
+        Tema.Painel p = new Tema.Painel(null, BRANCO, Tema.BORDA, 14);
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        p.setBackground(BRANCO);
-        p.setBorder(new CompoundBorder(new LineBorder(new Color(0x444444), 2), new EmptyBorder(4, 11, 4, 11)));
+        p.setBorder(new EmptyBorder(8, 14, 6, 14));
         p.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         p.setToolTipText(CRITERIOS_STATS[i]);
 
-        JLabel t = rotulo(TITULOS_STATS[i], Font.BOLD, 12);
-        JLabel n = rotulo("00", Font.BOLD, 26);
+        JLabel t = rotulo(TITULOS_STATS[i], Font.BOLD, 11);
+        t.setForeground(Tema.TEXTO_SUAVE);
+        JLabel n = rotulo("00", Font.BOLD, 32);
+        n.setForeground(Tema.PRIMARIA);
         numerosStats[i] = n;
         p.add(t);
         p.add(n);
 
         p.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) {
-                p.setBackground(CINZA_HOVER);
-                p.setBorder(new CompoundBorder(new LineBorder(PRETO, 3), new EmptyBorder(3, 10, 3, 10)));
-            }
-            public void mouseExited(MouseEvent e) {
-                p.setBackground(BRANCO);
-                p.setBorder(new CompoundBorder(new LineBorder(new Color(0x444444), 2), new EmptyBorder(4, 11, 4, 11)));
-            }
+            public void mouseEntered(MouseEvent e) { p.setBackground(CINZA_HOVER); p.borda = Tema.PRIMARIA_CLARA; p.repaint(); }
+            public void mouseExited(MouseEvent e)  { p.setBackground(BRANCO); p.borda = Tema.BORDA; p.repaint(); }
             public void mouseClicked(MouseEvent e) {
                 JOptionPane.showMessageDialog(TelaPrincipal.this,
                         TITULOS_STATS[i] + ": " + numerosStats[i].getText()
@@ -598,13 +628,35 @@ public class TelaPrincipal extends JFrame {
     }
 
     /** Mostra o motivo de uma regra violada; se for sobre o cliente, oferece abrir o cadastro. */
-    void avisarRegra(Locacao l, String msg) {
-        boolean porSaldo = msg.startsWith("Saldo pendente");          // o remédio está em "Quitar saldo", nos detalhes da reserva
-        String botao = porSaldo ? "Abrir reserva" : "Abrir cadastro";
-        int r = JOptionPane.showOptionDialog(this, msg, l.codigo() + " · " + l.cliente.nome,
-                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
-                new Object[]{"Fechar", botao}, "Fechar");
-        if (r == 1) { if (porSaldo) DetalhesReserva.abrir(this, ctrl, l); else abrirCadastro(l.cliente); }
+    /**
+     * Mostra a regra que impediu a ação. Se o controller disse ONDE resolver (PendenciaException), oferece
+     * o botão que leva direto ao lugar certo: cadastro do cliente, produto no Catálogo ou a própria reserva.
+     */
+    void avisarRegra(Locacao l, RegraNegocioException e) {
+        String botao = null;
+        PendenciaException p = e instanceof PendenciaException x ? x : null;
+        if (p != null) {
+            switch (p.onde) {
+                case CLIENTE: botao = "Abrir cadastro do cliente"; break;
+                case PRODUTO: botao = p.produto != null ? "Abrir produto" : null; break;
+                default:      botao = "Abrir reserva"; break;
+            }
+        }
+        Object[] opcoes = botao == null ? new Object[]{"Fechar"} : new Object[]{"Fechar", botao};
+        int r = JOptionPane.showOptionDialog(this, e.getMessage(), l.codigo() + " · " + l.cliente.nome,
+                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, opcoes, "Fechar");
+        if (r != 1 || p == null) return;
+        switch (p.onde) {
+            case CLIENTE: abrirCadastro(l.cliente); break;
+            case PRODUTO: abrirProduto(p.produto); break;
+            default:      DetalhesReserva.abrir(this, ctrl, l); break;
+        }
+    }
+
+    /** Abre o Catálogo na aba Produtos com o produto selecionado (para ajustar estoque/indisponíveis). */
+    void abrirProduto(Catalogo.Item produto) {
+        mostrarPagina(2);
+        telaCatalogo.abrirProduto(produto);
     }
 
     /** "+ Novo orçamento": abre a tela Orçamentos já com o formulário em branco. */
@@ -618,15 +670,21 @@ public class TelaPrincipal extends JFrame {
         telaOrcamentos.novo();
     }
 
+    /** UC05 FA02: abre a reserva confirmada (ainda não retirada) no formulário de Orçamentos para alteração. */
+    void alterarReserva(Locacao l) {
+        mostrarPagina(3);
+        telaOrcamentos.editar(l);
+    }
+
     /** Quem está usando o sistema (para registrar responsáveis). */
     Usuario usuario() { return usuario; }
 
-    /** Retirada/entrega: pergunta QUEM retira (titular ou pessoa autorizada, RN26) e o controller registra. */
+    /** Retirada/entrega: pergunta QUEM retira (titular ou pessoa autorizada, UC05) e o controller registra. */
     void retirar(Locacao l) {
         try {
             ctrl.validarMovimento(l, Etapa.LOCADO);   // confere as regras antes de perguntar
         } catch (RegraNegocioException e) {
-            avisarRegra(l, e.getMessage());
+            avisarRegra(l, e);
             return;
         }
         JComboBox<String> quem = new JComboBox<>(ctrl.pessoasParaRetirar(l).toArray(new String[0]));
@@ -642,7 +700,7 @@ public class TelaPrincipal extends JFrame {
         try {
             ctrl.registrarRetirada(l, (String) quem.getSelectedItem());
         } catch (RegraNegocioException e) {
-            avisarRegra(l, e.getMessage());
+            avisarRegra(l, e);
         }
     }
 
@@ -650,9 +708,13 @@ public class TelaPrincipal extends JFrame {
     void pagar(Locacao l) {
         String rotulo = ctrl.rotuloPagamento(l);
         if (rotulo == null) { aviso("Não há nada a pagar nesta reserva."); return; }
+        if (!PainelController.podeRegistrarPagamento(usuario)) {      // UC07: só o Administrador
+            aviso("Somente o Administrador registra pagamentos.\nPeça a ela para registrar o pagamento desta reserva.");
+            return;
+        }
         Campo valor = new Campo("Valor", 13);
         valor.setText(String.format(PT_BR, "%.2f", ctrl.valorSugerido(l)).replace('.', ','));
-        valor.setPreferredSize(new Dimension(260, 34));
+        valor.setPreferredSize(new Dimension(260, Tema.ALTURA));
         JComboBox<Pagamento.Forma> forma = new JComboBox<>(Pagamento.Forma.values());
         estilizarCombo(forma);
         JPanel p = new JPanel(new GridLayout(0, 1, 0, 6));
@@ -662,6 +724,9 @@ public class TelaPrincipal extends JFrame {
         p.add(valor);
         p.add(rotulo("Forma de pagamento:", Font.PLAIN, 12));
         p.add(forma);
+        if (l.etapa == Etapa.ORCAMENTO && !l.temEntrada())             // sinal: avisa (sem bloquear) item atrasado
+            for (String a : ctrl.avisosDeAtraso(l.itens, l.retirada, l))
+                p.add(rotulo("<html><div style='width:360px'>Atenção: " + a + ". A disponibilidade conta que volte a tempo.</div></html>", Font.BOLD, 11));
         int r = JOptionPane.showOptionDialog(this, p, rotulo,
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null,
                 new Object[]{"Confirmar pagamento", "Cancelar"}, "Confirmar pagamento");
@@ -670,10 +735,10 @@ public class TelaPrincipal extends JFrame {
         Pagamento.Forma f = (Pagamento.Forma) forma.getSelectedItem();
         try {
             try {
-                ctrl.pagar(l, v, f, null);
-            } catch (ExigeAutorizacaoException e) {                 // cliente inadimplente: UC22
+                ctrl.pagar(l, v, f, usuario, null);
+            } catch (ExigeAutorizacaoException e) {                 // cliente inadimplente: autorização registrada
                 if (!pedirAutorizacao(l, e.getMessage())) return;
-                ctrl.pagar(l, v, f, usuario);
+                ctrl.pagar(l, v, f, usuario, usuario);
             }
             if (l.contratoPendente) aviso(Mensagens.MSG016);
         } catch (RegraNegocioException e) {
@@ -681,7 +746,7 @@ public class TelaPrincipal extends JFrame {
         }
     }
 
-    /** UC22: cliente inadimplente não é bloqueado; um responsável pode autorizar (fica registrado). */
+    /** Decisão da equipe (o UC05 bloquearia): cliente inadimplente não é bloqueado; um responsável pode autorizar (fica registrado). */
     boolean pedirAutorizacao(Locacao l, String msg) {
         int r = JOptionPane.showOptionDialog(this,
                 msg + "\n\nVocê (" + usuario.nome() + ", " + usuario.perfil() + ") autoriza esta nova locação?\n"
@@ -691,11 +756,11 @@ public class TelaPrincipal extends JFrame {
         return r == 0;
     }
 
-    /** UC20: cadastra um terceiro autorizado a retirar os itens desta locação. */
+    /** Pessoa autorizada (UC03/UC05): cadastra um terceiro autorizado a retirar os itens desta locação. */
     void autorizarTerceiro(Locacao l) {
         Campo nome = new Campo("Nome completo", 13), doc = new Campo("Documento (RG ou CPF)", 13),
                 contato = new Campo("Telefone / WhatsApp", 13);
-        for (Campo c : new Campo[]{nome, doc, contato}) c.setPreferredSize(new Dimension(280, 34));
+        for (Campo c : new Campo[]{nome, doc, contato}) c.setPreferredSize(new Dimension(280, Tema.ALTURA));
         JPanel p = new JPanel(new GridLayout(0, 1, 0, 6));
         p.add(rotulo(l.codigo() + " · " + l.cliente.nome, Font.BOLD, 13));
         p.add(rotulo("Pessoa autorizada pelo titular a RETIRAR os itens:", Font.PLAIN, 12));
@@ -721,7 +786,7 @@ public class TelaPrincipal extends JFrame {
         JComboBox<Catalogo.Servico> cb = new JComboBox<>(ativos.toArray(new Catalogo.Servico[0]));
         estilizarCombo(cb);
         Campo valor = new Campo("Valor", 13);
-        valor.setPreferredSize(new Dimension(260, 34));
+        valor.setPreferredSize(new Dimension(260, Tema.ALTURA));
         Runnable preencher = () -> valor.setText(String.format(PT_BR, "%.2f",
                 ((Catalogo.Servico) cb.getSelectedItem()).valor).replace('.', ','));
         cb.addActionListener(e -> preencher.run());
@@ -746,7 +811,7 @@ public class TelaPrincipal extends JFrame {
     /** UC13: gera (ou consulta) o contrato/recibo em PDF e oferece abrir o arquivo. */
     void documento(Locacao l, boolean recibo) {
         try {
-            Documento d = recibo ? ctrl.gerarRecibo(l) : ctrl.gerarContrato(l);
+            Documento d = recibo ? ctrl.gerarRecibo(l, usuario) : ctrl.gerarContrato(l, usuario);
             int r = JOptionPane.showOptionDialog(this,
                     Mensagens.MSG018 + "\n" + d.tipo() + " v" + d.versao() + "\n" + d.arquivo(),
                     d.tipo() + " em PDF", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
@@ -772,11 +837,13 @@ public class TelaPrincipal extends JFrame {
 
     /** Pede confirmação e remove o cartão do painel (o cadastro do cliente continua). */
     void excluirDoPainel(Locacao l) {
-        String aviso = l.temEntrada() && l.etapa == Etapa.ORCAMENTO
-                ? "\nA entrada já paga NÃO é devolvida (ela cobre a data reservada)." : "";
+        String aviso = l.etapa == Etapa.ORCAMENTO
+                ? "\nO orçamento será CANCELADO e os itens voltam a ficar livres."
+                        + (l.temEntrada() ? "\nA entrada já paga NÃO é devolvida (ela cobre a data reservada)." : "")
+                : "\nEla continua em Locações, no histórico do cliente e nos relatórios.";
         int r = JOptionPane.showOptionDialog(this,
-                "Excluir " + l.codigo() + " · " + l.cliente.nome + " do painel?\n"
-                        + "O cadastro do cliente continua na tela Clientes." + aviso,
+                "Tirar " + l.codigo() + " · " + l.cliente.nome + " do painel?\n"
+                        + "Nada é apagado: o registro fica no histórico." + aviso,
                 "Excluir do painel", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
                 new Object[]{"Excluir", "Cancelar"}, "Cancelar");
         if (r != 0) return;
@@ -827,36 +894,63 @@ public class TelaPrincipal extends JFrame {
 
     static JLabel rotulo(String t, int estilo, int tam) {
         JLabel l = new JLabel(t);
-        l.setFont(new Font("SansSerif", estilo, tam));
+        l.setFont(estilo == Font.BOLD && tam >= 18 ? Tema.titulo(Font.BOLD, tam) : Tema.fonte(estilo, tam));
         l.setForeground(PRETO);
         return l;
     }
 
-    /** Botão cinza com borda escura; vira preto ao passar o mouse. */
-    static JButton botaoCinza(String texto, int tam) {
-        JButton b = new JButton(texto);
-        b.setFont(new Font("SansSerif", Font.BOLD, tam));
-        b.setFocusPainted(false);
-        b.setContentAreaFilled(false);
-        b.setOpaque(true);
-        b.setBackground(CINZA_BTN);
-        b.setForeground(PRETO);
-        b.setBorder(new CompoundBorder(new LineBorder(new Color(0x444444), 2), new EmptyBorder(0, 12, 0, 12)));
+    /** Botão de ação principal: azul com texto branco, cantos arredondados; escurece ao passar o mouse. */
+    static JButton botaoPrimario(String texto, int tam) {
+        Tema.Botao b = new Tema.Botao(texto);
+        b.setFont(Tema.fonte(Font.BOLD, Math.max(tam, 13)));
+        b.setBackground(Tema.PRIMARIA);
+        b.setForeground(BRANCO);
+        b.setBorder(new EmptyBorder(0, 16, 0, 16));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { b.setBackground(PRETO); b.setForeground(BRANCO); }
-            public void mouseExited(MouseEvent e)  { b.setBackground(CINZA_BTN); b.setForeground(PRETO); }
+            public void mouseEntered(MouseEvent e) { if (b.isEnabled()) b.setBackground(Tema.PRIMARIA_ESCURA); }
+            public void mouseExited(MouseEvent e)  { b.setBackground(Tema.PRIMARIA); }
         });
         return b;
     }
 
-    /** Caixa de seleção em preto e branco (borda escura, seta ▾, item destacado em preto). */
+    /** Botão SECUNDÁRIO (DESIGN.md 6.1): branco, texto rosa escuro, borda de campo; rosa claro no hover. */
+    static JButton botaoCinza(String texto, int tam) {
+        return botaoClaro(texto, tam, Tema.SUPERFICIE, Tema.PRIMARIA_ESCURA, Tema.BORDA_CAMPO);
+    }
+
+    /** Botão SUAVE (6.1): rosa claro, sem borda — ações repetidas dentro de uma seção (+ Produto, + Pacote...). */
+    static JButton botaoSuave(String texto, int tam) {
+        return botaoClaro(texto, tam, Tema.ROSA_CLARO, Tema.PRIMARIA_ESCURA, null);
+    }
+
+    /** Botão NEUTRO (6.1): branco, texto médio — ação de menor peso ou destrutiva leve (Remover, Descartar). */
+    static JButton botaoNeutro(String texto, int tam) {
+        return botaoClaro(texto, tam, Tema.SUPERFICIE, Tema.TEXTO_MEDIO, Tema.BORDA_CAMPO);
+    }
+
+    private static JButton botaoClaro(String texto, int tam, Color fundo, Color letra, Color borda) {
+        Tema.Botao b = new Tema.Botao(texto);
+        b.setFont(Tema.fonte(Font.BOLD, Math.max(tam, 13)));
+        b.setBackground(fundo);
+        b.setForeground(letra);
+        b.borda = borda;
+        b.setBorder(new EmptyBorder(0, 16, 0, 16));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        Color hover = fundo.equals(Tema.ROSA_CLARO) ? Tema.BORDA_SECAO : Tema.ROSA_CLARO;
+        b.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { if (b.isEnabled()) b.setBackground(hover); }
+            public void mouseExited(MouseEvent e)  { b.setBackground(fundo); }
+        });
+        return b;
+    }
+
+    /** Caixa de seleção no padrão do DESIGN.md (borda de campo, seta ▾, item destacado em rosa claro). */
     static <T> void estilizarCombo(JComboBox<T> cb) {
         cb.setUI(new BasicComboBoxUI() {
             @Override
             protected JButton createArrowButton() {
-                JButton b = new JButton("▾");
-                b.setFont(new Font("SansSerif", Font.BOLD, 14));
+                JButton b = new JButton(new IconeSeta());      // seta desenhada (a fonte nova não tem o símbolo ▾)
                 b.setBorder(new EmptyBorder(0, 8, 0, 8));
                 b.setContentAreaFilled(false);
                 b.setOpaque(true);
@@ -865,26 +959,37 @@ public class TelaPrincipal extends JFrame {
                 b.setFocusPainted(false);
                 b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                 b.addMouseListener(new MouseAdapter() {
-                    public void mouseEntered(MouseEvent e) { cb.setBorder(new LineBorder(PRETO, 2)); }
-                    public void mouseExited(MouseEvent e)  { cb.setBorder(new LineBorder(CINZA_BORDA, 2)); }
+                    public void mouseEntered(MouseEvent e) { cb.setBorder(new Tema.Arredondada(Tema.PRIMARIA_CLARA, 2, 8, 1, 4)); }
+                    public void mouseExited(MouseEvent e)  { cb.setBorder(new Tema.Arredondada(Tema.BORDA_FORTE, 1, 8, 1, 4)); }
                 });
                 return b;
             }
 
             @Override
             public void paintCurrentValueBackground(Graphics g, Rectangle r, boolean foco) {
-                super.paintCurrentValueBackground(g, r, false);   // sem a cor de seleção padrão
+                g.setColor(BRANCO);                                 // fundo liso, sem a cor de seleção/cinza padrão
+                g.fillRect(r.x, r.y, r.width, r.height);
             }
 
             @Override
             public void paintCurrentValue(Graphics g, Rectangle r, boolean foco) {
-                super.paintCurrentValue(g, r, false);
+                Object v = comboBox.getSelectedItem();
+                if (v == null) return;
+                JLabel l = new JLabel(String.valueOf(v));
+                l.setFont(comboBox.getFont());
+                l.setForeground(PRETO);
+                l.setOpaque(false);
+                currentValuePane.paintComponent(g, l, comboBox, r.x + 6, r.y, r.width - 6, r.height);
             }
         });
-        cb.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        // o texto escolhido é pintado com a cor de fundo da lista do popup (cinza padrão): deixamos igual ao resto
+        Object popup = cb.getAccessibleContext().getAccessibleChild(0);
+        if (popup instanceof javax.swing.plaf.basic.ComboPopup)
+            ((javax.swing.plaf.basic.ComboPopup) popup).getList().setBackground(BRANCO);
+        cb.setFont(Tema.fonte(Font.PLAIN, 13));
         cb.setBackground(BRANCO);
         cb.setForeground(PRETO);
-        cb.setBorder(new LineBorder(CINZA_BORDA, 2));
+        cb.setBorder(new Tema.Arredondada(Tema.BORDA_FORTE, 1, 8, 1, 4));
         cb.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         cb.setRenderer(new DefaultListCellRenderer() {
             @Override
@@ -894,67 +999,70 @@ public class TelaPrincipal extends JFrame {
                 boolean realce = sel && i >= 0;
                 l.setOpaque(true);
                 l.setBorder(new EmptyBorder(4, 10, 4, 10));
-                l.setBackground(realce ? PRETO : BRANCO);
+                l.setBackground(realce ? Tema.PRIMARIA : BRANCO);
                 l.setForeground(realce ? BRANCO : PRETO);
                 return l;
             }
         });
         cb.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { cb.setBorder(new LineBorder(PRETO, 2)); }
-            public void mouseExited(MouseEvent e)  { cb.setBorder(new LineBorder(CINZA_BORDA, 2)); }
+            public void mouseEntered(MouseEvent e) { cb.setBorder(new Tema.Arredondada(Tema.PRIMARIA_CLARA, 2, 8, 1, 4)); }
+            public void mouseExited(MouseEvent e)  { cb.setBorder(new Tema.Arredondada(Tema.BORDA_FORTE, 1, 8, 1, 4)); }
         });
     }
 
 
     // ================= Coluna =================
     /** Uma coluna do painel (Orçamento / Locado / Devolvido). Só desenha: quem está nela vem do controller. */
-    class Coluna extends JPanel {
+    class Coluna extends Tema.Painel {
         final Etapa etapa;
         final List<Card> lista = new ArrayList<>();
         final JPanel corpo = new JPanel();
         final JLabel contador = rotulo("00", Font.BOLD, 12);
-        final JPanel zonaSoltar = new JPanel(new GridBagLayout());
+        final Tema.Painel zonaSoltar = new Tema.Painel(new GridBagLayout(), new Color(0, 0, 0, 0), null, 12);
         boolean mostrarZona = false;
         boolean zonaAtiva = false;
 
         Coluna(int i) {
-            super(new BorderLayout());
+            super(new BorderLayout(), CINZA_COL, Tema.BORDA, 16);
             this.etapa = Etapa.values()[i];
-            setBackground(CINZA_COL);
-            setBorder(new LineBorder(new Color(0x666666), 2));
+            faixa = Tema.corEtapa(etapa);                     // faixa em degradê no topo: lilás, azul, turquesa
 
             JPanel cab = new JPanel(new BorderLayout());
-            cab.setBackground(CINZA_CAB);
-            cab.setBorder(new CompoundBorder(new MatteBorder(0, 0, 2, 0, new Color(0x666666)),
-                    new EmptyBorder(9, 12, 9, 12)));
-            cab.add(rotulo(NOMES_COLUNAS[i], Font.BOLD, 14), BorderLayout.WEST);
-            contador.setOpaque(true);
-            contador.setBackground(BRANCO);
+            cab.setOpaque(false);
+            cab.setBorder(new EmptyBorder(16, 14, 6, 14));
+            JLabel nomeCol = rotulo(NOMES_COLUNAS[i], Font.BOLD, 12);
+            cab.add(nomeCol, BorderLayout.WEST);
             contador.setHorizontalAlignment(SwingConstants.CENTER);
-            contador.setBorder(new CompoundBorder(new LineBorder(PRETO, 1), new EmptyBorder(2, 6, 2, 6)));
-            cab.add(contador, BorderLayout.EAST);
+            contador.setOpaque(false);
+            contador.setForeground(PRETO);
+            JPanel pilula = new Tema.Painel(new BorderLayout(), BRANCO, Tema.BORDA, 11);
+            pilula.setBorder(new EmptyBorder(2, 10, 2, 10));
+            pilula.add(contador, BorderLayout.CENTER);
+            cab.add(pilula, BorderLayout.EAST);
             add(cab, BorderLayout.NORTH);
 
             corpo.setLayout(new BoxLayout(corpo, BoxLayout.Y_AXIS));
-            corpo.setBackground(CINZA_COL);
-            corpo.setBorder(new EmptyBorder(9, 8, 8, 8));
+            corpo.setOpaque(false);
+            corpo.setBorder(new EmptyBorder(4, 10, 10, 10));
             JScrollPane rolagem = new JScrollPane(corpo,
                     ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                     ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
             rolagem.setBorder(null);
+            rolagem.setOpaque(false);
+            rolagem.getViewport().setOpaque(false);
             rolagem.getVerticalScrollBar().setUnitIncrement(14);
             add(rolagem, BorderLayout.CENTER);
 
             String msg = i == 0 ? "Arraste para trás não é permitido"
                     : i == 1 ? "Solte aqui para registrar retirada / entrega"
                     : "Solte aqui para registrar devolução";
-            JLabel m = rotulo(msg, Font.PLAIN, 12);
-            m.setForeground(CINZA_TEXTO);
+            JLabel m = rotulo(msg, Font.BOLD, 12);
+            m.setForeground(Tema.PRIMARIA);
             zonaSoltar.add(m);
             zonaSoltar.setAlignmentX(Component.LEFT_ALIGNMENT);
             zonaSoltar.setPreferredSize(new Dimension(100, 92));
             zonaSoltar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 92));
-            zonaSoltar.setBorder(new DashedBorder(new Color(0x555555), 2));
+            zonaSoltar.setBorder(new DashedBorder(Tema.PRIMARIA, 2));
         }
 
         /** Remonta a coluna a partir do que o controller diz que está nesta etapa. */
@@ -967,18 +1075,18 @@ public class TelaPrincipal extends JFrame {
                 lista.add(c);
                 c.setAlignmentX(Component.LEFT_ALIGNMENT);
                 corpo.add(c);
-                corpo.add(Box.createVerticalStrut(9));
+                corpo.add(Box.createVerticalStrut(10));
             }
             if (mostrarZona) {
-                zonaSoltar.setBackground(zonaAtiva ? new Color(0xC4C4C4) : new Color(0xE9E9E9));
-                zonaSoltar.setBorder(zonaAtiva ? new DashedBorder(PRETO, 3)
-                        : new DashedBorder(new Color(0x555555), 2));
+                        zonaSoltar.setBackground(zonaAtiva ? Tema.SELECAO : new Color(0, 0, 0, 0));
+                zonaSoltar.setBorder(new DashedBorder(Tema.PRIMARIA, zonaAtiva ? 3 : 2));
                 corpo.add(zonaSoltar);
             }
             corpo.add(Box.createVerticalGlue());
             contador.setText(dois(ctrl.doPainel(etapa).size()));
             corpo.revalidate();
             corpo.repaint();
+            repaint();
         }
     }
 
@@ -987,12 +1095,14 @@ public class TelaPrincipal extends JFrame {
      * Cartão de uma locação no painel. É só a parte visual: os dados ficam no model (Locacao)
      * e as regras no controller. Aqui tratamos o mouse (hover, clique e ARRASTAR).
      */
-    class Card extends JPanel {
+    class Card extends Tema.Painel {
         final Locacao loc;
         boolean hover = false, arrastando = false, emArraste = false;
         Point pressionado;
 
         Card(Locacao loc) {
+            super(null, BRANCO, Tema.BORDA, 12);
+            sombra = true;
             this.loc = loc;
             construir();
             configurarMouse();
@@ -1022,7 +1132,6 @@ public class TelaPrincipal extends JFrame {
         void construir() {
             removeAll();
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-            setOpaque(true);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             estilo();
 
@@ -1032,8 +1141,8 @@ public class TelaPrincipal extends JFrame {
             l1.setAlignmentX(Component.LEFT_ALIGNMENT);
             JPanel titulo = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
             titulo.setOpaque(false);
-            JLabel grip = rotulo("⋮⋮ ", Font.PLAIN, 13);
-            grip.setForeground(new Color(0x777777));
+            JLabel grip = new JLabel(new IconeAlca());
+            grip.setBorder(new EmptyBorder(0, 0, 0, 4));
             titulo.add(grip);
             titulo.add(rotulo(titulo(), Font.BOLD, 13));
             l1.add(titulo, BorderLayout.WEST);
@@ -1043,13 +1152,12 @@ public class TelaPrincipal extends JFrame {
             l2.add(rotulo(info(), Font.PLAIN, 11));
 
             JPanel l3 = linha(18);
-            JLabel b = rotulo(ctrl.aviso(loc), Font.BOLD, 11);
-            b.setOpaque(true);
+            String aviso = ctrl.aviso(loc);
             boolean urg = ctrl.urgente(loc);
-            b.setBackground(urg ? PRETO : CINZA_BTN);
-            b.setForeground(urg ? BRANCO : PRETO);
-            b.setBorder(new CompoundBorder(new LineBorder(new Color(0x444444), 1), new EmptyBorder(1, 6, 1, 6)));
-            l3.add(b);
+            // selo em pílula (DESIGN.md 3.5): urgente = exige ação hoje; neutro = resolvido; normal = em andamento
+            boolean resolvido = loc.etapa == Etapa.DEVOLVIDO || (loc.etapa == Etapa.LOCADO && !loc.temSaldo())
+                    || (loc.etapa == Etapa.ORCAMENTO && loc.temEntrada());
+            l3.add(urg ? Tema.Selo.urgente(aviso) : resolvido ? Tema.Selo.neutro(aviso) : Tema.Selo.normal(aviso));
 
             add(l1);
             add(Box.createVerticalStrut(2));
@@ -1062,19 +1170,20 @@ public class TelaPrincipal extends JFrame {
         }
 
         private JButton criarBotaoExcluir() {
-            JButton x = new JButton("Excluir");
-            x.setFont(new Font("SansSerif", Font.BOLD, 10));
-            x.setFocusPainted(false);
-            x.setContentAreaFilled(false);
-            x.setOpaque(true);
+            Tema.Botao x = new Tema.Botao("Excluir");
+            x.compacto = true;
+            x.raio = Tema.RAIO_PEQUENO;
+            x.raio = 8;
+            x.setFont(Tema.fonte(Font.BOLD, 10));
             x.setBackground(BRANCO);
-            x.setForeground(PRETO);
-            x.setBorder(new CompoundBorder(new LineBorder(new Color(0x777777), 1), new EmptyBorder(1, 6, 1, 6)));
+            x.setForeground(Tema.TEXTO_SUAVE);
+            x.borda = Tema.BORDA;
+            x.setBorder(new EmptyBorder(2, 9, 2, 9));
             x.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             x.setToolTipText("Remover este cartão do painel (o cadastro continua em Clientes)");
             x.addMouseListener(new MouseAdapter() {
-                public void mouseEntered(MouseEvent e) { x.setBackground(PRETO); x.setForeground(BRANCO); }
-                public void mouseExited(MouseEvent e)  { x.setBackground(BRANCO); x.setForeground(PRETO); }
+                public void mouseEntered(MouseEvent e) { x.setBackground(Tema.ALERTA_BG); x.setForeground(Tema.ALERTA); x.borda = Tema.ALERTA; }
+                public void mouseExited(MouseEvent e)  { x.setBackground(BRANCO); x.setForeground(Tema.TEXTO_SUAVE); x.borda = Tema.BORDA; }
             });
             x.addActionListener(e -> excluirDoPainel(loc));
             return x;
@@ -1090,12 +1199,14 @@ public class TelaPrincipal extends JFrame {
 
         void estilo() {
             if (hover || emArraste) {
-                setBackground(arrastando ? new Color(0xDEDEDE) : CINZA_HOVER);
-                setBorder(new CompoundBorder(new LineBorder(PRETO, 2), new EmptyBorder(7, 9, 7, 9)));
+                setBackground(arrastando ? Tema.SELECAO : CINZA_HOVER);
+                borda = Tema.PRIMARIA_CLARA;
             } else {
                 setBackground(BRANCO);
-                setBorder(new CompoundBorder(new LineBorder(new Color(0x444444), 1), new EmptyBorder(8, 10, 8, 10)));
+                borda = Tema.BORDA;
             }
+            setBorder(new EmptyBorder(11, 13, 14, 13));
+            repaint();
         }
 
         /** Coluna (diferente da atual) que está sob o ponto, em coordenadas da camada de arraste. */
@@ -1207,19 +1318,19 @@ public class TelaPrincipal extends JFrame {
             estilo();
 
             PainelController.Acao acao = null;
-            String erro = null;
+            RegraNegocioException erro = null;
             if (destino != null) {
                 try {
                     acao = ctrl.validarMovimento(loc, destino.etapa);
                 } catch (RegraNegocioException ex) {
-                    erro = ex.getMessage();
+                    erro = ex;
                 }
             }
             atualizarTudo();      // limpa as áreas tracejadas
 
             // diálogos depois que o arraste termina por completo
             final PainelController.Acao a = acao;
-            final String msg = erro;
+            final RegraNegocioException msg = erro;
             if (msg != null) SwingUtilities.invokeLater(() -> avisarRegra(loc, msg));
             else if (a == PainelController.Acao.RETIRAR) SwingUtilities.invokeLater(() -> retirar(loc));
             else if (a == PainelController.Acao.DEVOLVER) SwingUtilities.invokeLater(() -> abrirDevolucao(loc));
@@ -1242,12 +1353,13 @@ public class TelaPrincipal extends JFrame {
             g.translate(posicao.x + w / 2.0, posicao.y + h / 2.0);
             g.rotate(Math.toRadians(-2));
             g.translate(-w / 2.0, -h / 2.0);
-            g.setColor(new Color(0, 0, 0, 70));
-            g.fillRect(8, 8, w, h);
+            Tema.suave(g);
+            g.setColor(new Color(20, 50, 80, 45));
+            g.fill(new java.awt.geom.RoundRectangle2D.Float(6, 10, w - 2, h - 2, 24, 24));
             g.drawImage(imagem, 0, 0, null);
-            g.setColor(PRETO);
-            g.setStroke(new BasicStroke(2f));
-            g.drawRect(1, 1, w - 2, h - 2);
+            g.setColor(Tema.PRIMARIA);
+            g.setStroke(new BasicStroke(1.6f));
+            g.draw(new java.awt.geom.RoundRectangle2D.Float(0.8f, 0.8f, w - 4, h - 7, 24, 24));
             g.dispose();
         }
     }
@@ -1262,10 +1374,12 @@ public class TelaPrincipal extends JFrame {
         @Override
         public void paintBorder(Component c, Graphics g, int x, int y, int w, int h) {
             Graphics2D g2 = (Graphics2D) g.create();
+            Tema.suave(g2);
             g2.setColor(cor);
             g2.setStroke(new BasicStroke(esp, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
                     10f, new float[]{5f, 3f}, 0f));
-            g2.drawRect(x + esp / 2, y + esp / 2, w - esp, h - esp);
+            int arco = c instanceof Tema.Painel ? 24 : 0;
+            g2.draw(new java.awt.geom.RoundRectangle2D.Float(x + esp / 2f, y + esp / 2f, w - esp - 1, h - esp - 1, arco, arco));
             g2.dispose();
         }
 
@@ -1279,7 +1393,7 @@ public class TelaPrincipal extends JFrame {
 
         Campo(String dica, int tamanhoFonte) {
             this.dica = dica;
-            setFont(new Font("SansSerif", Font.PLAIN, tamanhoFonte));
+            setFont(Tema.fonte(Font.PLAIN, tamanhoFonte));
             setBackground(BRANCO);
             setForeground(PRETO);
             setCaretColor(PRETO);
@@ -1291,7 +1405,7 @@ public class TelaPrincipal extends JFrame {
                 public void focusLost(FocusEvent e)   { borda(false); repaint(); }
             });
             addMouseListener(new MouseAdapter() {
-                public void mouseEntered(MouseEvent e) { if (!isFocusOwner()) setBorder(montar(PRETO, 2)); }
+                public void mouseEntered(MouseEvent e) { if (!isFocusOwner()) setBorder(montar(Tema.PRIMARIA_CLARA, 2)); }
                 public void mouseExited(MouseEvent e)  { if (!isFocusOwner()) borda(false); }
             });
         }
@@ -1299,11 +1413,11 @@ public class TelaPrincipal extends JFrame {
         String dica() { return dica; }
 
         private Border montar(Color c, int esp) {
-            return new CompoundBorder(new LineBorder(c, esp), new EmptyBorder(4, 11 - esp, 4, 11 - esp));
+            return new Tema.Arredondada(c, esp, 10, 5, 10 - esp);
         }
 
         private void borda(boolean foco) {
-            setBorder(foco ? montar(PRETO, 3) : montar(CINZA_BORDA, 2));
+            setBorder(foco ? montar(Tema.PRIMARIA, 2) : montar(Tema.BORDA_FORTE, 1));
         }
 
         @Override
@@ -1312,7 +1426,7 @@ public class TelaPrincipal extends JFrame {
             if (getText().isEmpty() && !isFocusOwner()) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                g2.setColor(new Color(0x777777));
+                g2.setColor(Tema.TEXTO_SUAVE);
                 g2.setFont(getFont());
                 Insets in = getInsets();
                 g2.drawString(dica, in.left, (getHeight() + g2.getFontMetrics().getAscent()

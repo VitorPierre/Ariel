@@ -48,7 +48,7 @@ public class Main {
         // Tudo que mexe na interface roda na thread própria do Swing
         SwingUtilities.invokeLater(() -> {
             try {
-                // Visual padrão do Java (Metal): respeita as cores preto e branco da tela
+                // Visual base do Java (Metal); cores, fontes e formas vêm de view/Tema.java (DESIGN.md)
                 UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
             } catch (Exception e) {
                 System.err.println("Não foi possível aplicar o visual padrão: " + e.getMessage());

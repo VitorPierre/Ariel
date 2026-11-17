@@ -18,8 +18,9 @@ import java.util.function.Function;
 /**
  * VIEW: tela "Catálogo" (Tela 3 do protótipo), com quatro abas:
  *  Produtos | Pacotes | Temas e categorias | Serviços.
- * Cada aba tem a lista à esquerda e o detalhe/formulário à direita. Nada é excluído: usa-se
- * Inativar/Reativar (o histórico das locações fica preservado). As regras ficam no CatalogoController.
+ * Cada aba tem a lista à esquerda e o detalhe/formulário à direita. "Excluir" segue o FA02 da documentação:
+ * sem vínculos exclui; com vínculos desativa, preservando o histórico (desativado pode ser reativado).
+ * As regras ficam no CatalogoController.
  */
 public class TelaCatalogo extends JPanel {
 
@@ -29,7 +30,7 @@ public class TelaCatalogo extends JPanel {
     private final PainelController ctrl;
     private final CatalogoController cat;
     private final TelaPrincipal.Campo busca = new TelaPrincipal.Campo("Buscar produto ou categoria", 12);
-    private final JButton btnNovo = TelaPrincipal.botaoCinza("+ Novo produto", 13);
+    private final JButton btnNovo = TelaPrincipal.botaoPrimario("+ Novo produto", 13);
     private final CardLayout cartas = new CardLayout();
     private final JPanel abas = new JPanel(cartas);
     private final JToggleButton[] botoes = new JToggleButton[4];
@@ -45,8 +46,8 @@ public class TelaCatalogo extends JPanel {
         this.app = app;
         this.ctrl = ctrl;
         this.cat = cat;
-        setBackground(TelaPrincipal.BRANCO);
-        setBorder(new EmptyBorder(14, 16, 16, 16));
+        setBackground(Tema.FUNDO);
+        setBorder(new EmptyBorder(24, 28, 24, 28));
 
         temas = new PainelSimples("TEMAS", "Tema", false, new Cadastro() {
             public List<?> lista() { return Catalogo.TEMAS; }
@@ -76,12 +77,12 @@ public class TelaCatalogo extends JPanel {
         // ----- cabeçalho -----
         JPanel cab = new JPanel(new BorderLayout());
         cab.setOpaque(false);
-        cab.add(TelaPrincipal.rotulo("Catálogo", Font.BOLD, 20), BorderLayout.WEST);
+        cab.add(TelaPrincipal.rotulo("Catálogo", Font.BOLD, 30), BorderLayout.WEST);
         JPanel dir = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         dir.setOpaque(false);
-        busca.setPreferredSize(new Dimension(250, 36));
+        busca.setPreferredSize(new Dimension(250, Tema.ALTURA));
         busca.getDocument().addDocumentListener(Ui.ouvinte(this::atualizar));
-        btnNovo.setPreferredSize(new Dimension(160, 36));
+        btnNovo.setPreferredSize(new Dimension(160, Tema.ALTURA));
         btnNovo.addActionListener(e -> novo());
         dir.add(busca);
         dir.add(btnNovo);
@@ -96,7 +97,7 @@ public class TelaCatalogo extends JPanel {
         for (int i = 0; i < nomes.length; i++) {
             final int idx = i;
             botoes[i] = Ui.botaoEscolha(nomes[i]);
-            botoes[i].setPreferredSize(new Dimension(i == 2 ? 170 : 110, 34));
+            botoes[i].setPreferredSize(new Dimension(i == 2 ? 170 : 110, Tema.ALTURA));
             botoes[i].addActionListener(e -> trocarAba(idx));
             g.add(botoes[i]);
             barra.add(botoes[i]);
@@ -120,6 +121,14 @@ public class TelaCatalogo extends JPanel {
         add(topo, BorderLayout.NORTH);
         add(abas, BorderLayout.CENTER);
         atualizar();
+    }
+
+    /** Abre a aba Produtos com o produto selecionado (chamado quando falta estoque para uma retirada). */
+    void abrirProduto(Catalogo.Item p) {
+        if (p == null) return;
+        botoes[0].setSelected(true);
+        trocarAba(0);
+        produtos.selecionar(p);
     }
 
     private void trocarAba(int i) {
@@ -173,13 +182,13 @@ public class TelaCatalogo extends JPanel {
 
     private static TelaPrincipal.Campo campo(String dica) {
         TelaPrincipal.Campo c = new TelaPrincipal.Campo(dica, 13);
-        c.setPreferredSize(new Dimension(100, 34));
+        c.setPreferredSize(new Dimension(100, Tema.ALTURA));
         return c;
     }
 
     private static JScrollPane rolagem(JComponent c) {
         JScrollPane sp = new JScrollPane(c);
-        sp.setBorder(new LineBorder(TelaPrincipal.CINZA_LINHA, 1));
+        sp.setBorder(null);
         sp.getViewport().setBackground(TelaPrincipal.BRANCO);
         return sp;
     }
@@ -198,7 +207,7 @@ public class TelaCatalogo extends JPanel {
     private static JPanel botoesForm(JButton... bs) {
         JPanel p = new JPanel(new GridLayout(1, bs.length, 8, 0));
         p.setOpaque(false);
-        for (JButton b : bs) { b.setPreferredSize(new Dimension(100, 36)); p.add(b); }
+        for (JButton b : bs) { b.setPreferredSize(new Dimension(100, Tema.ALTURA)); p.add(b); }
         return p;
     }
 
@@ -244,7 +253,7 @@ public class TelaCatalogo extends JPanel {
             add(Ui.caixa("PRODUTOS", rolagem(tabela)), BorderLayout.CENTER);
 
             TelaPrincipal.estilizarCombo(cbCategoria);
-            cbCategoria.setPreferredSize(new Dimension(100, 34));
+            cbCategoria.setPreferredSize(new Dimension(100, Tema.ALTURA));
             salvar.addActionListener(e -> salvar());
             inativar.addActionListener(e -> alternar());
             JPanel form = coluna(Ui.bloco("Nome", tfNome), Ui.bloco("Cor / Material / Personagem", tfCor),
@@ -272,6 +281,16 @@ public class TelaCatalogo extends JPanel {
             carregando = false;
             if (antes != null && i >= 0) rotuloBotoes(antes);
             categoriasAtivas();
+        }
+
+        /** Seleciona o produto na lista e mostra o detalhe (estoque total e indisponíveis). */
+        void selecionar(Catalogo.Item p) {
+            recarregar("");
+            int i = modelo.dados.indexOf(p);
+            if (i < 0) return;
+            tabela.setRowSelectionInterval(i, i);                 // o listener preenche o detalhe
+            tabela.scrollRectToVisible(tabela.getCellRect(i, 0, true));
+            preencher(p);
         }
 
         void categoriasAtivas() {
@@ -309,7 +328,7 @@ public class TelaCatalogo extends JPanel {
 
         void rotuloBotoes(Catalogo.Item p) {
             inativar.setVisible(true);
-            inativar.setText(p.ativo ? "Inativar" : "Reativar");
+            inativar.setText(p.ativo ? "Excluir" : "Reativar");
         }
 
         void salvar() {
@@ -329,11 +348,28 @@ public class TelaCatalogo extends JPanel {
 
         void alternar() {
             if (sel == null) return;
-            String aviso = cat.alternarAtivo(sel);
+            if (sel.ativo) {                                         // UC08 FA02: excluir ou desativar
+                if (!confirmarExclusao(this, sel.nome, cat.temVinculos(sel))) return;
+                String m = cat.excluirOuDesativar(sel);
+                Catalogo.Item antes = sel;
+                recarregar(busca.getText().trim().toLowerCase());
+                preencher(Catalogo.ITENS.contains(antes) ? antes : null);
+                texto(msg, m);
+                return;
+            }
+            cat.alternarAtivo(sel);
             preencher(sel);
-            texto(msg, (sel.ativo ? "Produto reativado. (Indisponibilidade por dano não muda sozinha.)" : Mensagens.MSG006)
-                    + (aviso == null ? "" : "\n" + aviso));
+            texto(msg, "Produto reativado. (Indisponibilidade por dano não muda sozinha.)");
         }
+    }
+
+    /** Confirmação do "Excluir": avisa se, por ter vínculos, o cadastro será desativado em vez de apagado. */
+    private static boolean confirmarExclusao(Component pai, String nome, boolean vinculos) {
+        String txt = "Excluir \"" + nome + "\"?\n" + (vinculos
+                ? "Ele possui vínculos (orçamentos, locações ou outros cadastros): não será apagado, e sim DESATIVADO."
+                : "Ele não possui vínculos: será excluído.");
+        return JOptionPane.showOptionDialog(pai, txt, "Excluir cadastro", JOptionPane.DEFAULT_OPTION,
+                JOptionPane.PLAIN_MESSAGE, null, new Object[]{"Excluir", "Cancelar"}, "Cancelar") == 0;
     }
 
     private static int inteiro(String t) {
@@ -387,15 +423,15 @@ public class TelaCatalogo extends JPanel {
 
             TelaPrincipal.estilizarCombo(cbTema);
             TelaPrincipal.estilizarCombo(cbProduto);
-            cbTema.setPreferredSize(new Dimension(100, 34));
-            cbProduto.setPreferredSize(new Dimension(100, 34));
+            cbTema.setPreferredSize(new Dimension(100, Tema.ALTURA));
+            cbProduto.setPreferredSize(new Dimension(100, Tema.ALTURA));
             TelaClientes.estilizarTabela(tabelaComp, 12, 4);
             JScrollPane spc = rolagem(tabelaComp);
             spc.setPreferredSize(new Dimension(100, 110));
-            tfQtd.setPreferredSize(new Dimension(60, 34));
+            tfQtd.setPreferredSize(new Dimension(60, Tema.ALTURA));
             JButton add = TelaPrincipal.botaoCinza("+", 14), rem = TelaPrincipal.botaoCinza("−", 14);
-            add.setPreferredSize(new Dimension(44, 34));
-            rem.setPreferredSize(new Dimension(44, 34));
+            add.setPreferredSize(new Dimension(44, Tema.ALTURA));
+            rem.setPreferredSize(new Dimension(44, Tema.ALTURA));
             add.setToolTipText("Adicionar o produto ao pacote");
             rem.setToolTipText("Remover o produto selecionado");
             add.addActionListener(e -> adicionarComp());
@@ -477,7 +513,7 @@ public class TelaCatalogo extends JPanel {
                 comp.putAll(p.componentes);
                 compLista.addAll(p.componentes.keySet());
                 inativar.setVisible(true);
-                inativar.setText(p.ativo ? "Inativar" : "Reativar");
+                inativar.setText(p.ativo ? "Excluir" : "Reativar");
             }
             modeloComp.fireTableDataChanged();
         }
@@ -510,9 +546,18 @@ public class TelaCatalogo extends JPanel {
 
         void alternar() {
             if (sel == null) return;
-            String aviso = cat.alternarAtivo(sel);
+            if (sel.ativo) {                                         // UC12: excluir ou desativar
+                if (!confirmarExclusao(this, sel.nome, cat.temVinculos(sel))) return;
+                String m = cat.excluirOuDesativar(sel);
+                Catalogo.Item antes = sel;
+                recarregar(busca.getText().trim().toLowerCase());
+                preencher(Catalogo.ITENS.contains(antes) ? antes : null);
+                texto(msg, m);
+                return;
+            }
+            cat.alternarAtivo(sel);
             preencher(sel);
-            texto(msg, (sel.ativo ? "Pacote reativado." : Mensagens.MSG006) + (aviso == null ? "" : "\n" + aviso));
+            texto(msg, "Pacote reativado.");
         }
     }
 
@@ -537,7 +582,7 @@ public class TelaCatalogo extends JPanel {
         final TelaPrincipal.Campo tfNome, tfDesc, tfValor;
         final JLabel msg = TelaPrincipal.rotulo(" ", Font.BOLD, 12);
         final JButton salvar = Ui.botaoPreto("Salvar", 13), inativar = TelaPrincipal.botaoCinza("Inativar", 13),
-                novo = TelaPrincipal.botaoCinza("+ Novo", 13);
+                novo = TelaPrincipal.botaoSuave("+ Novo", 13);
         Object sel;
         boolean carregando;
 
@@ -572,7 +617,7 @@ public class TelaCatalogo extends JPanel {
             JPanel esq = new JPanel(new BorderLayout(0, 6));
             esq.setOpaque(false);
             esq.add(rolagem(tabela), BorderLayout.CENTER);
-            novo.setPreferredSize(new Dimension(100, 32));
+            novo.setPreferredSize(new Dimension(100, Tema.ALTURA));
             JPanel nb = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
             nb.setOpaque(false);
             nb.add(novo);
@@ -623,7 +668,7 @@ public class TelaCatalogo extends JPanel {
             else {
                 tfNome.setText(cad.nome(o)); tfDesc.setText(cad.descricao(o)); tfValor.setText(Ui.numero(cad.valor(o)));
                 inativar.setVisible(true);
-                inativar.setText(cad.ativo(o) ? "Inativar" : "Reativar");
+                inativar.setText(cad.ativo(o) ? "Excluir" : "Reativar");
             }
         }
 
@@ -645,9 +690,18 @@ public class TelaCatalogo extends JPanel {
 
         void alternar() {
             if (sel == null) return;
+            if (cad.ativo(sel)) {                                    // UC06/UC09/UC10 FA02: excluir ou desativar
+                if (!confirmarExclusao(this, cad.nome(sel), cat.temVinculos(sel))) return;
+                String m = cat.excluirOuDesativar(sel);
+                Object antes = sel;
+                recarregar(busca.getText().trim().toLowerCase());
+                preencher(cad.lista().contains(antes) ? antes : null);
+                texto(msg, m);
+                return;
+            }
             cat.alternarAtivo(sel);
             preencher(sel);
-            texto(msg, cad.ativo(sel) ? "Cadastro reativado." : Mensagens.MSG006);
+            texto(msg, "Cadastro reativado.");
         }
     }
 }

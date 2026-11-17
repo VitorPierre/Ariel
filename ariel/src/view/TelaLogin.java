@@ -11,7 +11,7 @@ import java.awt.event.*;
 import java.util.function.Consumer;
 
 /**
- * VIEW: tela de login (usuário, senha e botão Entrar), no mesmo estilo preto e branco.
+ * VIEW: tela de login (DESIGN.md 8.1): painel rosa claro com a logo à esquerda, formulário à direita.
  * Não confere a senha: entrega o que foi digitado ao LoginController, que valida as regras
  * (usuário/senha certos, bloqueio após muitas tentativas). Se der certo, chama aoEntrar.
  */
@@ -19,14 +19,15 @@ public class TelaLogin extends JFrame {
 
     private final LoginController ctrl;
     private final Consumer<Usuario> aoEntrar;
-    private final TelaPrincipal.Campo tfUsuario = new TelaPrincipal.Campo("Nome de usuário", 14);
-    private final CampoSenha pfSenha = new CampoSenha("Senha", 14);
+    private final TelaPrincipal.Campo tfUsuario = new TelaPrincipal.Campo("", 14);
+    private final CampoSenha pfSenha = new CampoSenha("", 14);
     private final JLabel lblErro = TelaPrincipal.rotulo(" ", Font.BOLD, 12);
-    private final JButton btnEntrar = TelaPrincipal.botaoCinza("Entrar", 14);
+    private final JButton btnEntrar = TelaPrincipal.botaoPrimario("Entrar", 14);
     private Point arrasteJanela;
 
     public TelaLogin(LoginController ctrl, Consumer<Usuario> aoEntrar) {
         super("Ariel · Conto de Fadas");
+        setIconImage(Logo.imagem());
         this.ctrl = ctrl;
         this.aoEntrar = aoEntrar;
         setUndecorated(true);
@@ -35,15 +36,18 @@ public class TelaLogin extends JFrame {
         JPanel raiz = new JPanel(new BorderLayout());
         raiz.setBackground(TelaPrincipal.BORDA_CLARA);
         raiz.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(TelaPrincipal.BORDA_FINA, 1), new EmptyBorder(0, 6, 6, 6)));
+                new LineBorder(TelaPrincipal.BORDA_FINA, 1), new EmptyBorder(0, 0, 0, 0)));
         setContentPane(raiz);
         raiz.add(criarBarraTitulo(), BorderLayout.NORTH);
 
         // área branca com o quadro do login no centro
-        JPanel fundo = new JPanel(new GridBagLayout());
+        JPanel fundo = new JPanel(new GridLayout(1, 2));        // duas colunas: marca | formulário
         fundo.setBackground(TelaPrincipal.BRANCO);
-        fundo.setBorder(new LineBorder(TelaPrincipal.PRETO, 2));
-        fundo.add(criarQuadro());
+        fundo.add(criarPainelMarca());
+        JPanel direita = new JPanel(new GridBagLayout());
+        direita.setBackground(TelaPrincipal.BRANCO);
+        direita.add(criarQuadro());
+        fundo.add(direita);
         raiz.add(fundo, BorderLayout.CENTER);
 
         // Enter em qualquer campo aciona o botão; ESC fecha
@@ -51,22 +55,22 @@ public class TelaLogin extends JFrame {
         getRootPane().registerKeyboardAction(e -> dispose(),
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_IN_FOCUSED_WINDOW);
 
-        setSize(760, 560);
-        setMinimumSize(new Dimension(560, 480));
+        setSize(1000, 640);
+        setMinimumSize(new Dimension(860, 600));
         setLocationRelativeTo(null);
     }
 
     private JComponent criarBarraTitulo() {
         JPanel barra = new JPanel(new BorderLayout());
         barra.setBackground(TelaPrincipal.BORDA_CLARA);
-        barra.setBorder(new EmptyBorder(4, 6, 4, 0));
-        barra.setPreferredSize(new Dimension(10, 34));
+        barra.setBorder(new CompoundBorder(new MatteBorder(0, 0, 1, 0, Tema.BORDA_SECAO), new EmptyBorder(4, 12, 4, 0)));
+        barra.setPreferredSize(new Dimension(10, Tema.ALTURA));
         JLabel titulo = TelaPrincipal.rotulo("Ariel · Conto de Fadas  —  Login", Font.PLAIN, 12);
         titulo.setForeground(TelaPrincipal.CINZA_TEXTO);
         barra.add(titulo, BorderLayout.WEST);
 
-        JButton fechar = new JButton("✕");
-        fechar.setFont(new Font("SansSerif", Font.BOLD, 14));
+        JButton fechar = new JButton("×");
+        fechar.setFont(Tema.fonte(Font.BOLD, 14));
         fechar.setFocusPainted(false);
         fechar.setContentAreaFilled(false);
         fechar.setOpaque(true);
@@ -75,7 +79,7 @@ public class TelaLogin extends JFrame {
         fechar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         fechar.setToolTipText("Fechar (Esc)");
         fechar.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { fechar.setBackground(TelaPrincipal.PRETO); fechar.setForeground(TelaPrincipal.BRANCO); }
+            public void mouseEntered(MouseEvent e) { fechar.setBackground(Tema.ERRO); fechar.setForeground(TelaPrincipal.BRANCO); }
             public void mouseExited(MouseEvent e)  { fechar.setBackground(TelaPrincipal.BORDA_CLARA); fechar.setForeground(TelaPrincipal.PRETO); }
         });
         fechar.addActionListener(e -> dispose());
@@ -95,45 +99,53 @@ public class TelaLogin extends JFrame {
         return barra;
     }
 
-    private JComponent criarQuadro() {
-        JPanel q = new JPanel();
-        q.setLayout(new BoxLayout(q, BoxLayout.Y_AXIS));
-        q.setBackground(TelaPrincipal.BRANCO);
-        q.setBorder(new CompoundBorder(new LineBorder(new Color(0x666666), 2), new EmptyBorder(24, 28, 24, 28)));
-        q.setPreferredSize(new Dimension(400, 380));
-
-        JPanel logo = new JPanel(new GridBagLayout());
-        logo.setBackground(new Color(0xE4E4E4));
-        logo.setBorder(new TelaPrincipal.DashedBorder(new Color(0x888888), 1));
-        logo.add(TelaPrincipal.rotulo("Logo Ariel", Font.PLAIN, 12));
-        logo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
-        logo.setPreferredSize(new Dimension(100, 80));
-        logo.setAlignmentX(Component.LEFT_ALIGNMENT);
-        q.add(logo);
-        q.add(Box.createVerticalStrut(16));
-
-        JLabel titulo = TelaPrincipal.rotulo("Entrar no sistema", Font.BOLD, 20);
-        titulo.setAlignmentX(Component.LEFT_ALIGNMENT);
-        q.add(titulo);
-        q.add(Box.createVerticalStrut(14));
-
-        for (JComponent c : new JComponent[]{tfUsuario, pfSenha}) {
+    /** Coluna da esquerda: logo grande, nome completo e uma linha sobre o sistema, em fundo rosa claro. */
+    private JComponent criarPainelMarca() {
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setBackground(Tema.ROSA_CLARO);
+        p.setBorder(new EmptyBorder(0, 56, 0, 40));
+        JLabel logo = new JLabel(Logo.icone(240));
+        JLabel nome = TelaPrincipal.rotulo("CONTO DE FADAS · FESTAS E EVENTOS", Font.PLAIN, 13);
+        nome.setFont(Tema.fonte(Font.PLAIN, 13).deriveFont(java.util.Map.of(java.awt.font.TextAttribute.TRACKING, 0.15f)));
+        nome.setForeground(Tema.TEXTO_SUAVE);
+        JLabel frase = new JLabel("<html><div style='width:320px'>Orçamentos, locações e devoluções da decoração em um só lugar.</div></html>");
+        frase.setFont(Tema.fonte(Font.PLAIN, 15));
+        frase.setForeground(Tema.TEXTO_MEDIO);
+        p.add(Box.createVerticalGlue());
+        for (JComponent c : new JComponent[]{logo, nome, frase}) {
             c.setAlignmentX(Component.LEFT_ALIGNMENT);
-            c.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-            c.setPreferredSize(new Dimension(100, 40));
-            q.add(c);
-            q.add(Box.createVerticalStrut(10));
+            p.add(c);
+            p.add(Box.createVerticalStrut(c == logo ? 24 : 16));
         }
+        p.add(Box.createVerticalGlue());
+        return p;
+    }
 
-        lblErro.setAlignmentX(Component.LEFT_ALIGNMENT);
-        q.add(lblErro);
-        q.add(Box.createVerticalStrut(8));
+    /** Coluna da direita: formulário com no máximo 380 px de largura, rótulos acima dos campos. */
+    private JComponent criarQuadro() {
+        JLabel titulo = TelaPrincipal.rotulo("Entrar no sistema", Font.BOLD, 30);
+        JLabel sub = TelaPrincipal.rotulo("Use o usuário e a senha cadastrados.", Font.PLAIN, 14);
+        sub.setForeground(Tema.TEXTO_SUAVE);
 
-        btnEntrar.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btnEntrar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
-        btnEntrar.setPreferredSize(new Dimension(100, 42));
+        JPanel blocoUsuario = Ui.bloco("Usuário", tfUsuario), blocoSenha = Ui.bloco("Senha", pfSenha);
+        for (JComponent c : new JComponent[]{tfUsuario, pfSenha}) c.setPreferredSize(new Dimension(100, 48));
+
+        lblErro.setForeground(Tema.ERRO);
+        btnEntrar.setPreferredSize(new Dimension(100, 48));
         btnEntrar.addActionListener(e -> entrar());
-        q.add(btnEntrar);
+
+        JLabel ajuda = new JLabel("<html><div style='width:330px'>Esqueceu a senha? Peça à proprietária para redefinir em Configurações.</div></html>");
+        ajuda.setFont(Tema.fonte(Font.PLAIN, 13));
+        ajuda.setForeground(Tema.TEXTO_MEDIO);
+        Tema.Painel caixaAjuda = new Tema.Painel(new BorderLayout(), Tema.ROSA_CLARO, null, Tema.RAIO_CONTROLE);
+        caixaAjuda.setBorder(new EmptyBorder(12, 14, 12, 14));
+        caixaAjuda.add(ajuda, BorderLayout.CENTER);
+
+        JPanel q = Ui.pilha(0, titulo, Ui.espaco(6), sub, Ui.espaco(24), blocoUsuario,
+                Ui.espaco(16), blocoSenha, Ui.espaco(8), lblErro,
+                Ui.espaco(8), btnEntrar, Ui.espaco(20), caixaAjuda);
+        q.setPreferredSize(new Dimension(380, q.getPreferredSize().height));
         return q;
     }
 

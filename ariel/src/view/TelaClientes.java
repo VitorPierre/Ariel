@@ -1,6 +1,6 @@
 package view;
 
-import controller.PainelController;
+import controller.ClienteController;
 import model.*;
 
 import javax.swing.*;
@@ -10,13 +10,12 @@ import javax.swing.table.*;
 import javax.swing.text.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.text.Collator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
 /**
- * Tela "Clientes" (preto e branco), aberta pelo menu lateral da TelaPrincipal.
+ * Tela "Clientes" (visual do DESIGN.md), aberta pelo menu lateral da TelaPrincipal.
  *
  *  - LISTA: CPF, Nome, WhatsApp e Situação (Em dia / Inadimplente), com busca e filtro.
  *  - FICHA DO CLIENTE: cadastro com CPF validado (único), máscaras e alerta de inadimplência.
@@ -41,16 +40,15 @@ public class TelaClientes extends JPanel {
     private static final Color CINZA_TEXTO  = TelaPrincipal.CINZA_TEXTO;
     private static final Color CINZA_LINHA  = TelaPrincipal.CINZA_LINHA;
     private static final Color CINZA_BORDA  = TelaPrincipal.CINZA_BORDA;
-    private static final Color CINZA_PAINEL = new Color(0x666666);
 
-    private static final String[] FILTROS = {"Todos", "Em dia", "Inadimplente"};
-    private static final String[] TIPOS = {"Retira/Devolve", "Retira", "Devolve"};
-    private static final int ALTURA_LINHA = 24;
-    private static final int LARGURA_LATERAL = 360;
+    private static final String[] FILTROS = ClienteController.FILTROS;
+    private static final String[] TIPOS = ClienteController.TIPOS_AUTORIZACAO;
+    static final int FONTE_TABELA = 13, RECUO_TABELA = 10;   // DESIGN.md 6.6
+    private static final int ALTURA_LINHA = 36;          // linha de tabela (texto 14 px + 12 px de respiro)
+    private static final int LARGURA_LATERAL = 470;
 
     private final TelaPrincipal app;          // janela principal (só para navegar entre telas)
-    private final PainelController ctrl;      // CONTROLLER: regras de negócio e dados
-    private final List<Cliente> clientes;
+    private final ClienteController ctrl;     // CONTROLLER: validação, cadastro, inadimplência, inativação
     private final List<Cliente> visiveis = new ArrayList<>();
 
     // ----- lista -----
@@ -63,16 +61,16 @@ public class TelaClientes extends JPanel {
     // ----- ficha -----
     private final JLabel tituloFicha = TelaPrincipal.rotulo("FICHA DO CLIENTE", Font.BOLD, 12);
     private final JPanel alertaBox = new JPanel(new BorderLayout());
-    private final TelaPrincipal.Campo tfCpf = new TelaPrincipal.Campo("CPF * (único)", 13);
-    private final TelaPrincipal.Campo tfNome = new TelaPrincipal.Campo("Nome", 13);
-    private final TelaPrincipal.Campo tfRg = new TelaPrincipal.Campo("RG", 13);
-    private final TelaPrincipal.Campo tfInstagram = new TelaPrincipal.Campo("Instagram", 13);
-    private final TelaPrincipal.Campo tfWhats = new TelaPrincipal.Campo("Telefone / WhatsApp", 13);
-    private final TelaPrincipal.Campo tfEndereco = new TelaPrincipal.Campo("Endereço completo *", 13);
-    private final AreaObs taObs = new AreaObs("Observações");
+    private final TelaPrincipal.Campo tfCpf = new TelaPrincipal.Campo("000.000.000-00", 13);
+    private final TelaPrincipal.Campo tfNome = new TelaPrincipal.Campo("Nome e sobrenome", 13);
+    private final TelaPrincipal.Campo tfRg = new TelaPrincipal.Campo("Opcional", 13);
+    private final TelaPrincipal.Campo tfInstagram = new TelaPrincipal.Campo("@usuario", 13);
+    private final TelaPrincipal.Campo tfWhats = new TelaPrincipal.Campo("(00) 00000-0000", 13);
+    private final TelaPrincipal.Campo tfEndereco = new TelaPrincipal.Campo("Rua, número, bairro, cidade", 13);
+    private final AreaObs taObs = new AreaObs("");
     private final JScrollPane rolagemObs = new JScrollPane(taObs);
-    private final JButton btnHistorico = TelaPrincipal.botaoCinza("Histórico de locações", 12);
-    private final JButton btnSalvar = new JButton("Salvar");
+    private final JButton btnHistorico = TelaPrincipal.botaoCinza("Histórico", 12);
+    private final Tema.Botao btnSalvar = new Tema.Botao("Salvar");
     private final JButton btnSituacao = TelaPrincipal.botaoCinza("Marcar como inadimplente", 12);   // alterna Em dia / Inadimplente (manual)
 
     // ----- pessoas autorizadas -----
@@ -87,13 +85,12 @@ public class TelaClientes extends JPanel {
     private boolean salvarHover = false;
     private boolean obsHover = false;
 
-    public TelaClientes(TelaPrincipal app, PainelController ctrl) {
+    public TelaClientes(TelaPrincipal app, ClienteController ctrl) {
         super(new BorderLayout());
         this.app = app;
         this.ctrl = ctrl;
-        this.clientes = ctrl.clientes;
-        setBackground(BRANCO);
-        setBorder(new EmptyBorder(14, 16, 16, 16));
+        setBackground(Tema.FUNDO);
+        setBorder(new EmptyBorder(24, 28, 24, 28));
 
         add(criarCabecalho(), BorderLayout.NORTH);
         add(criarCorpo(), BorderLayout.CENTER);
@@ -112,22 +109,22 @@ public class TelaClientes extends JPanel {
         JPanel cab = new JPanel(new BorderLayout());
         cab.setOpaque(false);
         cab.setBorder(new EmptyBorder(0, 0, 14, 0));
-        cab.add(TelaPrincipal.rotulo("Clientes", Font.BOLD, 20), BorderLayout.WEST);
+        cab.add(TelaPrincipal.rotulo("Clientes", Font.BOLD, 30), BorderLayout.WEST);
 
         JPanel direita = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         direita.setOpaque(false);
 
-        busca.setPreferredSize(new Dimension(230, 36));
+        busca.setPreferredSize(new Dimension(230, Tema.ALTURA));
         busca.getDocument().addDocumentListener(simples(this::recarregarLista));
         direita.add(busca);
 
         TelaPrincipal.estilizarCombo(filtro);
-        filtro.setPreferredSize(new Dimension(130, 36));
+        filtro.setPreferredSize(new Dimension(130, Tema.ALTURA));
         filtro.addActionListener(e -> recarregarLista());
         direita.add(filtro);
 
-        JButton novo = TelaPrincipal.botaoCinza("+ Novo cliente", 13);
-        novo.setPreferredSize(new Dimension(140, 36));
+        JButton novo = TelaPrincipal.botaoPrimario("+ Novo cliente", 13);
+        novo.setPreferredSize(new Dimension(140, Tema.ALTURA));
         novo.addActionListener(e -> novoCliente());
         direita.add(novo);
 
@@ -160,20 +157,15 @@ public class TelaClientes extends JPanel {
     private JComponent criarLista() {
         JPanel lista = new JPanel(new BorderLayout());
         lista.setBackground(BRANCO);
-        lista.setBorder(new CompoundBorder(new LineBorder(CINZA_PAINEL, 2), new EmptyBorder(8, 10, 10, 10)));
-
-        JLabel t = TelaPrincipal.rotulo("LISTA", Font.BOLD, 12);
-        t.setForeground(CINZA_TEXTO);
-        t.setBorder(new EmptyBorder(0, 0, 6, 0));
-        lista.add(t, BorderLayout.NORTH);
+        lista.setBorder(new Tema.Arredondada(Tema.BORDA_SECAO, 1, Tema.RAIO_SECAO, 8, 10));
 
         estilizarTabela(tabela, 12, 6);
-        tabela.getColumnModel().getColumn(0).setPreferredWidth(120);
-        tabela.getColumnModel().getColumn(1).setPreferredWidth(150);
-        tabela.getColumnModel().getColumn(2).setPreferredWidth(115);
-        tabela.getColumnModel().getColumn(3).setPreferredWidth(110);
+        tabela.getColumnModel().getColumn(0).setPreferredWidth(124);
+        tabela.getColumnModel().getColumn(1).setPreferredWidth(132);
+        tabela.getColumnModel().getColumn(2).setPreferredWidth(130);
+        tabela.getColumnModel().getColumn(3).setPreferredWidth(109);
         tabela.getColumnModel().getColumn(3).setCellRenderer(new RenderSituacao());
-        rolagemLista.setBorder(new LineBorder(CINZA_LINHA, 1));
+        rolagemLista.setBorder(null);
         rolagemLista.getViewport().setBackground(BRANCO);
         lista.add(rolagemLista, BorderLayout.CENTER);
 
@@ -194,10 +186,10 @@ public class TelaClientes extends JPanel {
             public void mouseReleased(MouseEvent e) { if (e.isPopupTrigger()) menuLista(e); }
         });
 
-        // tecla Delete exclui o cliente selecionado
-        tabela.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), "excluirCliente");
-        tabela.getActionMap().put("excluirCliente", new AbstractAction() {
-            public void actionPerformed(ActionEvent e) { if (selecionado != null) excluir(selecionado); }
+        // tecla Delete inativa o cliente selecionado (nada é excluído)
+        tabela.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), "inativarCliente");
+        tabela.getActionMap().put("inativarCliente", new AbstractAction() {
+            public void actionPerformed(ActionEvent e) { if (selecionado != null && selecionado.ativo) alternarAtivo(selecionado); }   // excluir/desativar
         });
 
         // a caixa da lista tem a altura das linhas (como no desenho) e rola se passar do espaço
@@ -211,14 +203,15 @@ public class TelaClientes extends JPanel {
     private JComponent criarLateral() {
         PainelRolavel coluna = new PainelRolavel();
         coluna.setLayout(new BoxLayout(coluna, BoxLayout.Y_AXIS));
-        coluna.setBackground(BRANCO);
+        coluna.setBackground(Tema.FUNDO);
         coluna.add(criarFicha());
+        coluna.add(Box.createVerticalStrut(16));
         coluna.add(criarAutorizadas());
 
         JScrollPane sp = new JScrollPane(coluna, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         sp.setBorder(null);
-        sp.getViewport().setBackground(BRANCO);
+        sp.getViewport().setBackground(Tema.FUNDO);
         sp.getVerticalScrollBar().setUnitIncrement(16);
         sp.setPreferredSize(new Dimension(LARGURA_LATERAL, 100));
         sp.setMinimumSize(new Dimension(LARGURA_LATERAL, 100));
@@ -230,65 +223,75 @@ public class TelaClientes extends JPanel {
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setBackground(BRANCO);
-        p.setBorder(new CompoundBorder(new LineBorder(CINZA_PAINEL, 2), new EmptyBorder(10, 10, 10, 10)));
+        p.setBorder(new Tema.Arredondada(Tema.BORDA_SECAO, 1, Tema.RAIO_SECAO, 14, 16));
         p.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        tituloFicha.setFont(Tema.fonteSecao());
         tituloFicha.setForeground(CINZA_TEXTO);
         tituloFicha.setAlignmentX(Component.LEFT_ALIGNMENT);
-        tituloFicha.setBorder(new EmptyBorder(0, 0, 6, 0));
+        tituloFicha.setBorder(new EmptyBorder(0, 0, 10, 0));
         p.add(tituloFicha);
 
         // alerta (só aparece para cliente inadimplente)
-        JLabel texto = new JLabel("<html><div style='width:215px'><b>ALERTA: cliente inadimplente "
-                + "(nova locação exige autorização)</b></div></html>");
-        texto.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        texto.setForeground(PRETO);
+        JLabel texto = new JLabel("<html><div style='width:380px'><b>Cliente inadimplente:</b> nova locação exige autorização.</div></html>");
+        texto.setFont(Tema.fonte(Font.PLAIN, 13));
+        texto.setForeground(Tema.ERRO);
         JPanel caixa = new JPanel(new BorderLayout());
-        caixa.setBackground(CINZA_SEL);
-        caixa.setBorder(new CompoundBorder(new LineBorder(new Color(0x444444), 2), new EmptyBorder(6, 8, 6, 8)));
+        caixa.setBackground(Tema.ERRO_BG);
+        caixa.setBorder(new Tema.Arredondada(Tema.ERRO_BG, 1, Tema.RAIO_CONTROLE, 8, 12));
         caixa.add(texto, BorderLayout.CENTER);
         alertaBox.setOpaque(false);
-        alertaBox.setBorder(new EmptyBorder(0, 0, 6, 0));
+        alertaBox.setBorder(new EmptyBorder(0, 0, 10, 0));
         alertaBox.add(caixa, BorderLayout.CENTER);
         alertaBox.setAlignmentX(Component.LEFT_ALIGNMENT);
         alertaBox.setVisible(false);
         p.add(alertaBox);
 
-        for (TelaPrincipal.Campo c : new TelaPrincipal.Campo[]{tfCpf, tfNome, tfRg, tfInstagram, tfWhats, tfEndereco}) {
-            c.setAlignmentX(Component.LEFT_ALIGNMENT);
-            c.setPreferredSize(new Dimension(100, 34));
-            c.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
-            p.add(c);
-            p.add(Box.createVerticalStrut(6));
-        }
+        // campos com o rótulo ACIMA (DESIGN.md 6.2), em duas colunas como no protótipo
+        p.add(linhaCampos(Ui.bloco("CPF *", tfCpf), Ui.bloco("RG", tfRg)));
+        p.add(Box.createVerticalStrut(12));
+        p.add(linhaCampos(Ui.bloco("Nome completo *", tfNome)));
+        p.add(Box.createVerticalStrut(12));
+        p.add(linhaCampos(Ui.bloco("Telefone / WhatsApp", tfWhats), Ui.bloco("Instagram", tfInstagram)));
+        p.add(Box.createVerticalStrut(12));
+        p.add(linhaCampos(Ui.bloco("Endereço completo *", tfEndereco)));
+        p.add(Box.createVerticalStrut(12));
 
-        rolagemObs.setAlignmentX(Component.LEFT_ALIGNMENT);
-        rolagemObs.setPreferredSize(new Dimension(100, 58));
-        rolagemObs.setMinimumSize(new Dimension(100, 58));
-        rolagemObs.setMaximumSize(new Dimension(Integer.MAX_VALUE, 58));
         rolagemObs.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        p.add(rolagemObs);
-        p.add(Box.createVerticalStrut(8));
+        JPanel obs = Ui.bloco("Observações", rolagemObs);
+        rolagemObs.setPreferredSize(new Dimension(100, 60));
+        obs.setAlignmentX(Component.LEFT_ALIGNMENT);
+        obs.setMaximumSize(new Dimension(Integer.MAX_VALUE, obs.getPreferredSize().height));
+        p.add(obs);
+        p.add(Box.createVerticalStrut(16));
 
-        btnSituacao.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btnSituacao.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
-        btnSituacao.setPreferredSize(new Dimension(100, 34));
         btnSituacao.setToolTipText("A inadimplência é decidida por você; o sistema só alerta (descreva o motivo em Observações).");
         btnSituacao.addActionListener(e -> { if (selecionado != null) alternarInadimplencia(selecionado); });
-        p.add(btnSituacao);
-        p.add(Box.createVerticalStrut(6));
-
+        btnHistorico.addActionListener(e -> historico());
+        btnSalvar.setPreferredSize(new Dimension(110, Tema.ALTURA));
+        JPanel esquerda = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        esquerda.setOpaque(false);
+        esquerda.add(btnSituacao);
+        esquerda.add(Box.createHorizontalStrut(10));
+        esquerda.add(btnHistorico);
         JPanel botoes = new JPanel(new BorderLayout());
         botoes.setOpaque(false);
         botoes.setAlignmentX(Component.LEFT_ALIGNMENT);
-        botoes.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
-        btnHistorico.setPreferredSize(new Dimension(172, 34));
-        btnHistorico.addActionListener(e -> historico());
-        btnSalvar.setPreferredSize(new Dimension(92, 34));
-        botoes.add(btnHistorico, BorderLayout.WEST);
+        botoes.setMaximumSize(new Dimension(Integer.MAX_VALUE, Tema.ALTURA));
+        botoes.add(esquerda, BorderLayout.WEST);
         botoes.add(btnSalvar, BorderLayout.EAST);
         p.add(botoes);
         return p;
+    }
+
+    /** Uma linha do formulário: um bloco ocupa tudo; dois dividem a largura (12 px entre eles). */
+    private static JPanel linhaCampos(JPanel... blocos) {
+        JPanel l = new JPanel(new GridLayout(1, blocos.length, 12, 0));
+        l.setOpaque(false);
+        for (JPanel b : blocos) l.add(b);
+        l.setAlignmentX(Component.LEFT_ALIGNMENT);
+        l.setMaximumSize(new Dimension(Integer.MAX_VALUE, l.getPreferredSize().height));
+        return l;
     }
 
     // ---------- PESSOAS AUTORIZADAS ----------
@@ -296,10 +299,11 @@ public class TelaClientes extends JPanel {
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setBackground(BRANCO);
-        p.setBorder(new CompoundBorder(new LineBorder(CINZA_PAINEL, 2), new EmptyBorder(10, 10, 10, 10)));
+        p.setBorder(new Tema.Arredondada(Tema.BORDA_SECAO, 1, Tema.RAIO_SECAO, 14, 16));
         p.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel t = TelaPrincipal.rotulo("PESSOAS AUTORIZADAS", Font.BOLD, 12);
+        t.setFont(Tema.fonteSecao());
         t.setForeground(CINZA_TEXTO);
         t.setAlignmentX(Component.LEFT_ALIGNMENT);
         t.setBorder(new EmptyBorder(0, 0, 6, 0));
@@ -310,7 +314,7 @@ public class TelaClientes extends JPanel {
         tabelaAut.getColumnModel().getColumn(1).setPreferredWidth(95);
         tabelaAut.getColumnModel().getColumn(2).setPreferredWidth(100);
         tabelaAut.getColumnModel().getColumn(3).setPreferredWidth(85);
-        rolagemAut.setBorder(new LineBorder(CINZA_LINHA, 1));
+        rolagemAut.setBorder(null);
         rolagemAut.getViewport().setBackground(BRANCO);
         rolagemAut.setAlignmentX(Component.LEFT_ALIGNMENT);
         p.add(rolagemAut);
@@ -328,10 +332,10 @@ public class TelaClientes extends JPanel {
             }
         });
 
-        JButton autorizar = TelaPrincipal.botaoCinza("+ Autorizar pessoa", 13);
+        JButton autorizar = TelaPrincipal.botaoSuave("+ Autorizar pessoa", 13);
         autorizar.setAlignmentX(Component.LEFT_ALIGNMENT);
-        autorizar.setPreferredSize(new Dimension(100, 34));
-        autorizar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
+        autorizar.setPreferredSize(new Dimension(100, Tema.ALTURA));
+        autorizar.setMaximumSize(new Dimension(Integer.MAX_VALUE, Tema.ALTURA));
         autorizar.addActionListener(e -> autorizarPessoa());
         p.add(autorizar);
         return p;
@@ -364,24 +368,8 @@ public class TelaClientes extends JPanel {
     private void recarregarLista() {
         ignorarSelecao = true;
         try {
-            String q = busca.getText().trim().toLowerCase();
-            String qDigitos = digitos(q);
-            String situacao = (String) filtro.getSelectedItem();
-
             visiveis.clear();
-            for (Cliente c : clientes) {
-                boolean inad = ctrl.inadimplente(c);
-                if ("Em dia".equals(situacao) && inad) continue;
-                if ("Inadimplente".equals(situacao) && !inad) continue;
-                if (!q.isEmpty()) {
-                    boolean porNome = c.nome.toLowerCase().contains(q);
-                    boolean porCpf = !qDigitos.isEmpty() && digitos(c.cpf).contains(qDigitos);
-                    if (!porNome && !porCpf) continue;
-                }
-                visiveis.add(c);
-            }
-            Collator ordem = Collator.getInstance(TelaPrincipal.PT_BR);
-            visiveis.sort((a, b) -> ordem.compare(a.nome, b.nome));
+            visiveis.addAll(ctrl.buscar(busca.getText(), (String) filtro.getSelectedItem()));   // filtro e ordem: controller
 
             modeloClientes.fireTableDataChanged();
             tabela.setPreferredScrollableViewportSize(new Dimension(100, Math.max(visiveis.size(), 2) * ALTURA_LINHA));
@@ -418,7 +406,7 @@ public class TelaClientes extends JPanel {
             taObs.setText(c == null ? "" : c.observacoes);
             taObs.setCaretPosition(0);
             sujo = false;
-            tituloFicha.setText(c == null ? "FICHA DO CLIENTE · NOVO" : "FICHA DO CLIENTE");
+            tituloFicha.setText(c == null ? "FICHA DO CLIENTE · NOVO" : c.ativo ? "FICHA DO CLIENTE" : "FICHA DO CLIENTE · INATIVO");
             atualizarAutorizadas();
             atualizarAlerta();
         } finally {
@@ -467,39 +455,20 @@ public class TelaClientes extends JPanel {
     private void salvar() {
         if (!sujo) { aviso("Nenhuma alteração para salvar."); return; }
 
-        String cpfDigitos = digitos(tfCpf.getText());
-        if (cpfDigitos.isEmpty()) { aviso("Informe o CPF do cliente."); tfCpf.requestFocusInWindow(); return; }
-        if (!cpfValido(cpfDigitos)) { aviso("CPF inválido. Confira os números digitados."); tfCpf.requestFocusInWindow(); return; }
-        for (Cliente o : clientes) {
-            if (o != selecionado && digitos(o.cpf).equals(cpfDigitos)) {
-                aviso("Já existe um cliente com este CPF: " + o.nome + ".");
-                tfCpf.requestFocusInWindow();
-                return;
-            }
-        }
-        String nome = tfNome.getText().trim();
-        if (nome.isEmpty()) { aviso("Informe o nome do cliente."); tfNome.requestFocusInWindow(); return; }
-        String whats = tfWhats.getText().trim();
-        if (!whats.isEmpty() && digitos(whats).length() < 10) {
-            aviso("Telefone / WhatsApp incompleto. Informe o DDD e o número.");
-            tfWhats.requestFocusInWindow();
+        Cliente c;
+        try {
+            c = ctrl.salvar(selecionado, tfCpf.getText(), tfNome.getText(), tfRg.getText(), tfInstagram.getText(),
+                    tfWhats.getText(), tfEndereco.getText(), taObs.getText());
+        } catch (ValidacaoException e) {
+            aviso(e.getMessage());
+            campo(e.campo).requestFocusInWindow();
+            return;
+        } catch (RegraNegocioException e) {
+            aviso(e.getMessage());
             return;
         }
-        String endereco = tfEndereco.getText().trim();
-        if (endereco.isEmpty()) { aviso("Informe o endereço completo do cliente."); tfEndereco.requestFocusInWindow(); return; }
-
-        Cliente c = selecionado != null ? selecionado : new Cliente();
-        c.cpf = tfCpf.getText().trim();
-        c.nome = nome;
-        c.rg = tfRg.getText().trim();
-        c.instagram = tfInstagram.getText().trim();
-        c.whatsapp = whats;
-        c.endereco = endereco;
-        c.observacoes = taObs.getText().trim();
-        if (selecionado == null) clientes.add(c);
 
         carregar(c);             // recarrega a ficha já salva
-        ctrl.notificar();   // atualiza o painel (nomes nos cartões) e esta lista
         int i = visiveis.indexOf(c);
         if (i >= 0) tabela.scrollRectToVisible(tabela.getCellRect(i, 0, true));
 
@@ -519,7 +488,7 @@ public class TelaClientes extends JPanel {
                     k.codigo(), k.arquivada ? "Arquivado" : k.etapa.nome, TelaPrincipal.FMT_COMPLETA.format(k.evento),
                     saiu ? TelaPrincipal.FMT_COMPLETA.format(k.retirada) : "-",
                     saiu ? TelaPrincipal.FMT_COMPLETA.format(k.devolucao) : "-",
-                    TelaPrincipal.moeda(k.total()), ctrl.aviso(k)});
+                    TelaPrincipal.moeda(k.total()), ctrl.situacaoLocacao(k)});
         }
         if (linhas.isEmpty()) { aviso(selecionado.nome + " ainda não possui locações."); return; }
 
@@ -534,7 +503,7 @@ public class TelaClientes extends JPanel {
         t.getColumnModel().getColumn(6).setPreferredWidth(170);
         t.setPreferredScrollableViewportSize(new Dimension(720, Math.min(linhas.size(), 8) * ALTURA_LINHA));
         JScrollPane sp = new JScrollPane(t);
-        sp.setBorder(new LineBorder(CINZA_LINHA, 1));
+        sp.setBorder(new Tema.Arredondada(Tema.BORDA_SECAO, 1, Tema.RAIO_CONTROLE, 4, 4));
         sp.getViewport().setBackground(BRANCO);
 
         JOptionPane.showOptionDialog(this, sp, "Histórico de locações — " + selecionado.nome,
@@ -564,12 +533,12 @@ public class TelaClientes extends JPanel {
                     JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
                     new Object[]{"Autorizar", "Cancelar"}, "Autorizar");
             if (r != 0) return;
-            if (nome.getText().trim().isEmpty()) { aviso("Informe o nome da pessoa."); continue; }
-            if (documento.getText().trim().isEmpty()) { aviso("Informe o documento da pessoa."); continue; }
-            String tel = contato.getText().trim();
-            if (!tel.isEmpty() && digitos(tel).length() < 10) { aviso("Contato incompleto. Informe o DDD e o número."); continue; }
-            selecionado.autorizadas.add(new Cliente.Autorizada(nome.getText().trim(), documento.getText().trim(),
-                    tel, (String) tipo.getSelectedItem()));
+            try {
+                ctrl.autorizar(selecionado, nome.getText(), documento.getText(), contato.getText(), (String) tipo.getSelectedItem());
+            } catch (RegraNegocioException e) {
+                aviso(e.getMessage());
+                continue;
+            }
             atualizarAutorizadas();
             return;
         }
@@ -583,7 +552,7 @@ public class TelaClientes extends JPanel {
                 "Remover pessoa autorizada", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
                 new Object[]{"Remover", "Cancelar"}, "Cancelar");
         if (r != 0) return;
-        selecionado.autorizadas.remove(linha);
+        ctrl.removerAutorizada(selecionado, a);
         atualizarAutorizadas();
     }
 
@@ -594,32 +563,43 @@ public class TelaClientes extends JPanel {
                         + "(Descreva o motivo no campo Observações e clique em Salvar.)";
         if (JOptionPane.showConfirmDialog(this, pergunta, "Situação do cliente", JOptionPane.OK_CANCEL_OPTION,
                 JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
-        if (c.inadimplenteManual) {
-            c.inadimplenteManual = false;
-            if (ctrl.inadimplente(c)) {
-                aviso(c.nome + " continua inadimplente por ter locação atrasada.\n"
-                        + "Registre a devolução no painel para regularizar.");
-            }
-        } else {
-            c.inadimplenteManual = true;
-        }
+        ctrl.alternarInadimplencia(c);
         atualizar();
     }
 
-    private void excluir(Cliente c) {
-        if (ctrl.temReservaEmAberto(c)) {
-            aviso("Não é possível excluir " + c.nome + ": há orçamento ou locação em aberto.\n"
-                    + "Conclua a devolução ou remova o cartão no painel primeiro.");
+    /**
+     * UC03 FA03 — Excluir ou desativar: o controller verifica vínculos. Sem vínculos exclui (MSG005);
+     * com vínculos desativa, preservando o histórico (MSG006). Desativado pode ser reativado (filtro "Inativos").
+     */
+    private void alternarAtivo(Cliente c) {
+        if (!c.ativo) {
+            ctrl.reativar(c);
+            aviso(c.nome + " foi reativado e volta a aparecer para novos orçamentos.");
             return;
         }
+        String detalhe = ctrl.temVinculos(c)
+                ? "Ele possui orçamentos/locações: não será apagado, e sim DESATIVADO (o histórico é mantido)."
+                : "Ele não possui orçamentos nem locações: o cadastro será excluído.";
         int r = JOptionPane.showOptionDialog(this,
-                "Excluir o cliente " + c.nome + " (CPF " + c.cpf + ")?\n"
-                        + "O cadastro e o histórico dele no painel serão removidos e não poderão ser recuperados.",
+                "Excluir o cliente " + c.nome + " (CPF " + c.cpf + ")?\n" + detalhe,
                 "Excluir cliente", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
                 new Object[]{"Excluir", "Cancelar"}, "Cancelar");
         if (r != 0) return;
+        boolean excluido = ctrl.excluirOuDesativar(c);
         if (c == selecionado) carregar(null);
-        ctrl.removerCliente(c);      // remove do cadastro e do painel; recarrega esta lista
+        atualizar();
+        aviso(excluido ? Mensagens.MSG005 : Mensagens.MSG006);
+    }
+
+    /** Campo da ficha correspondente ao nome usado pelo controller na ValidacaoException. */
+    private JComponent campo(String nome) {
+        switch (nome == null ? "" : nome) {
+            case ClienteController.CAMPO_CPF:      return tfCpf;
+            case ClienteController.CAMPO_NOME:     return tfNome;
+            case ClienteController.CAMPO_WHATS:    return tfWhats;
+            case ClienteController.CAMPO_ENDERECO: return tfEndereco;
+            default:                               return tfCpf;
+        }
     }
 
     // ================= Menus do botão direito =================
@@ -636,8 +616,8 @@ public class TelaClientes extends JPanel {
         hist.addActionListener(x -> historico());
         JMenuItem sit = new JMenuItem(c.inadimplenteManual ? "Marcar como em dia" : "Marcar como inadimplente");
         sit.addActionListener(x -> alternarInadimplencia(c));
-        JMenuItem exc = new JMenuItem("Excluir cliente");
-        exc.addActionListener(x -> excluir(c));
+        JMenuItem exc = new JMenuItem(c.ativo ? "Excluir cliente" : "Reativar cliente");
+        exc.addActionListener(x -> alternarAtivo(c));
         menu.add(hist);
         menu.add(sit);
         menu.addSeparator();
@@ -678,12 +658,10 @@ public class TelaClientes extends JPanel {
     }
 
     private void configurarSalvar() {
-        btnSalvar.setFont(new Font("SansSerif", Font.BOLD, 12));
+        btnSalvar.setFont(Tema.fonte(Font.BOLD, 12));
         btnSalvar.setFocusPainted(false);
-        btnSalvar.setContentAreaFilled(false);
-        btnSalvar.setOpaque(true);
-        btnSalvar.setForeground(BRANCO);
-        btnSalvar.setBorder(new CompoundBorder(new LineBorder(CINZA_BORDA, 2), new EmptyBorder(0, 14, 0, 14)));
+        btnSalvar.setForeground(Color.WHITE);
+        btnSalvar.setBorder(new EmptyBorder(0, 14, 0, 14));
         btnSalvar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnSalvar.addActionListener(e -> salvar());
         btnSalvar.addMouseListener(new MouseAdapter() {
@@ -695,7 +673,7 @@ public class TelaClientes extends JPanel {
 
     /** Cinza = nada a salvar; preto = há alterações; cinza escuro ao passar o mouse com alterações. */
     private void estilizarSalvar() {
-        Color fundo = !sujo ? new Color(0x8C8C8C) : (salvarHover ? new Color(0x444444) : PRETO);
+        Color fundo = !sujo ? Tema.PRIMARIA_CLARA : (salvarHover ? Tema.PRIMARIA_ESCURA : Tema.PRIMARIA);
         btnSalvar.setBackground(fundo);
         btnSalvar.setForeground(BRANCO);
         btnSalvar.setToolTipText(sujo ? "Salvar as alterações" : "Nenhuma alteração para salvar");
@@ -720,27 +698,22 @@ public class TelaClientes extends JPanel {
         atualizarEstiloObs();
     }
 
-    /** Observações: cinza tracejado quando vazio, branco com borda sólida quando em uso. */
+    /** Observações: mesmo contorno dos campos (borda de campo; 2 px rosa no foco). */
     private void atualizarEstiloObs() {
         boolean foco = taObs.isFocusOwner();
-        boolean vazio = taObs.getText().isEmpty();
-        if (!foco && vazio) {
-            rolagemObs.getViewport().setBackground(obsHover ? new Color(0xD2D2D2) : new Color(0xE0E0E0));
-            rolagemObs.setBorder(new TelaPrincipal.DashedBorder(obsHover ? PRETO : new Color(0x777777), 1));
-        } else {
-            rolagemObs.getViewport().setBackground(BRANCO);
-            rolagemObs.setBorder(new LineBorder(foco || obsHover ? PRETO : CINZA_BORDA, foco ? 3 : 2));
-        }
+        rolagemObs.getViewport().setBackground(BRANCO);
+        rolagemObs.setBorder(new Tema.Arredondada(foco ? Tema.PRIMARIA : Tema.BORDA_CAMPO, foco ? 2 : 1, Tema.RAIO_CONTROLE, 2, 2));
         rolagemObs.repaint();
     }
 
     // ================= Estilo das tabelas =================
     static void estilizarTabela(JTable t, int fonte, int recuo) {
         t.setRowHeight(ALTURA_LINHA);
-        t.setShowGrid(true);
-        t.setGridColor(CINZA_LINHA);
-        t.setIntercellSpacing(new Dimension(1, 1));
-        t.setFont(new Font("SansSerif", Font.PLAIN, fonte));
+        t.setShowHorizontalLines(true);                  // só divisória entre linhas: sem grade vertical
+        t.setShowVerticalLines(false);
+        t.setGridColor(Tema.LINHA_TABELA);
+        t.setIntercellSpacing(new Dimension(0, 1));
+        t.setFont(Tema.fonte(Font.PLAIN, FONTE_TABELA));
         t.setForeground(PRETO);
         t.setBackground(BRANCO);
         t.setSelectionBackground(CINZA_SEL);
@@ -754,6 +727,8 @@ public class TelaClientes extends JPanel {
         cab.setReorderingAllowed(false);
         cab.setDefaultRenderer(new CabecalhoRenderer(fonte, recuo));
         cab.setPreferredSize(new Dimension(100, ALTURA_LINHA));
+        cab.setBackground(BRANCO);
+        cab.setBorder(null);
 
         // linha sob o mouse fica em destaque
         t.addMouseMotionListener(new MouseMotionAdapter() {
@@ -789,10 +764,10 @@ public class TelaClientes extends JPanel {
         @Override
         public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foco, int linha, int col) {
             JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, false, false, linha, col);
-            l.setFont(new Font("SansSerif", Font.PLAIN, fonte));
+            l.setFont(Tema.fonte(Font.PLAIN, FONTE_TABELA));
             l.setForeground(PRETO);
             l.setBackground(corLinha(t, sel, linha));
-            l.setBorder(new EmptyBorder(0, recuo, 0, recuo));
+            l.setBorder(new EmptyBorder(0, RECUO_TABELA, 0, RECUO_TABELA));
             return l;
         }
     }
@@ -805,27 +780,23 @@ public class TelaClientes extends JPanel {
         @Override
         public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foco, int linha, int col) {
             JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, false, false, linha, col);
-            l.setFont(new Font("SansSerif", Font.BOLD, fonte));
-            l.setForeground(PRETO);
-            l.setBackground(CINZA_CAB);
+            l.setFont(Tema.fonte(Font.BOLD, 12));            // cabeçalho: 12 px, texto suave, linha embaixo
+            l.setForeground(CINZA_TEXTO);
+            l.setBackground(BRANCO);
             l.setOpaque(true);
-            l.setBorder(new CompoundBorder(new MatteBorder(0, 0, 1, 1, CINZA_LINHA), new EmptyBorder(0, recuo, 0, recuo)));
+            l.setHorizontalAlignment(SwingConstants.LEFT);
+            l.setBorder(new CompoundBorder(new MatteBorder(0, 0, 1, 0, Tema.BORDA_SECAO), new EmptyBorder(0, RECUO_TABELA, 0, RECUO_TABELA)));
             return l;
         }
     }
 
-    /** Situação em "etiqueta": cinza para Em dia, preta com letras brancas para Inadimplente. */
+    /** Situação em selo (DESIGN.md 3.5): neutro para "Em dia"/"Inativo", urgente para "Inadimplente". */
     static class RenderSituacao extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foco, int linha, int col) {
             JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
             p.setBackground(corLinha(t, sel, linha));
-            boolean inad = "Inadimplente".equals(v);
-            JLabel chip = TelaPrincipal.rotulo(String.valueOf(v), Font.BOLD, 11);
-            chip.setOpaque(true);
-            chip.setBackground(inad ? PRETO : CINZA_BTN);
-            chip.setForeground(inad ? BRANCO : PRETO);
-            chip.setBorder(new CompoundBorder(new LineBorder(new Color(0x444444), 1), new EmptyBorder(0, 6, 0, 6)));
+            JLabel chip = "Inadimplente".equals(v) ? Tema.Selo.urgente("Inadimplente") : Tema.Selo.neutro(String.valueOf(v));
             p.add(chip);
             return p;
         }
@@ -845,7 +816,7 @@ public class TelaClientes extends JPanel {
                 case 0:  return c.cpf;
                 case 1:  return c.nome;
                 case 2:  return c.whatsapp;
-                default: return ctrl.inadimplente(c) ? "Inadimplente" : "Em dia";
+                default: return ctrl.situacao(c);
             }
         }
 
@@ -897,24 +868,6 @@ public class TelaClientes extends JPanel {
         int corte = d.length() > 10 ? 5 : 4;          // celular (9 dígitos) ou fixo (8 dígitos)
         if (resto.length() <= corte) return sb.append(resto).toString();
         return sb.append(resto, 0, corte).append('-').append(resto.substring(corte)).toString();
-    }
-
-    /** Confere os dois dígitos verificadores do CPF. */
-    static boolean cpfValido(String cpf) {
-        String d = digitos(cpf);
-        if (d.length() != 11) return false;
-        boolean todosIguais = true;
-        for (int i = 1; i < 11; i++) if (d.charAt(i) != d.charAt(0)) { todosIguais = false; break; }
-        if (todosIguais) return false;
-        return digitoVerificador(d.substring(0, 9)) == d.charAt(9) - '0'
-                && digitoVerificador(d.substring(0, 10)) == d.charAt(10) - '0';
-    }
-
-    private static int digitoVerificador(String base) {
-        int soma = 0;
-        for (int i = 0; i < base.length(); i++) soma += (base.charAt(i) - '0') * (base.length() + 1 - i);
-        int resto = (soma * 10) % 11;
-        return resto == 10 ? 0 : resto;
     }
 
     /** Aceita só números e reaplica a máscara (CPF, telefone) a cada digitação, mantendo o cursor. */
@@ -981,7 +934,7 @@ public class TelaClientes extends JPanel {
 
         AreaObs(String dica) {
             this.dica = dica;
-            setFont(new Font("SansSerif", Font.PLAIN, 12));
+            setFont(Tema.fonte(Font.PLAIN, 13));
             setLineWrap(true);
             setWrapStyleWord(true);
             setOpaque(false);
@@ -998,7 +951,7 @@ public class TelaClientes extends JPanel {
             if (getText().isEmpty() && !isFocusOwner()) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                g2.setColor(new Color(0x666666));
+                g2.setColor(Tema.TEXTO_SUAVE);
                 g2.setFont(getFont());
                 FontMetrics fm = g2.getFontMetrics();
                 g2.drawString(dica, (getWidth() - fm.stringWidth(dica)) / 2,

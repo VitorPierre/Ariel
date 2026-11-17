@@ -18,20 +18,20 @@ class DetalhesReserva {
     static void abrir(TelaPrincipal app, PainelController ctrl, Locacao l) {
         JTextArea area = new JTextArea(texto(ctrl, l));
         area.setEditable(false);
-        area.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        area.setFont(Tema.fonte(Font.PLAIN, 13));
         area.setBackground(TelaPrincipal.BRANCO);
         area.setBorder(new EmptyBorder(6, 8, 6, 8));
         JScrollPane sp = new JScrollPane(area);
-        sp.setBorder(new LineBorder(TelaPrincipal.CINZA_LINHA, 1));
+        sp.setBorder(new Tema.Arredondada(Tema.BORDA_SECAO, 1, Tema.RAIO_CONTROLE, 4, 4));
         sp.setPreferredSize(new Dimension(460, 380));
 
         // monta os botões: o texto do botão de pagamento vem do controller (null = nada a pagar)
         java.util.List<String> botoes = new java.util.ArrayList<>();
         botoes.add("Fechar");
         botoes.add("Ver cadastro");
-        String pagar = ctrl.rotuloPagamento(l);
+        String pagar = PainelController.podeRegistrarPagamento(app.usuario()) ? ctrl.rotuloPagamento(l) : null;   // UC07
         if (pagar != null) botoes.add(pagar);
-        if (l.etapa == Etapa.ORCAMENTO && l.temEntrada() && !l.arquivada) botoes.add("Registrar retirada");
+        if (l.etapa == Etapa.ORCAMENTO && l.temEntrada() && !l.arquivada) { botoes.add("Alterar reserva"); botoes.add("Registrar retirada"); }
         if (l.etapa == Etapa.LOCADO) botoes.add("Registrar devolução");
         botoes.add("Excluir do painel");
 
@@ -42,6 +42,7 @@ class DetalhesReserva {
         if (escolhido.equals("Ver cadastro")) app.abrirCadastro(l.cliente);
         else if (escolhido.equals(pagar)) { app.pagar(l); abrir(app, ctrl, l); }      // reabre com os valores novos
         else if (escolhido.equals("Registrar retirada")) app.retirar(l);
+        else if (escolhido.equals("Alterar reserva")) app.alterarReserva(l);
         else if (escolhido.equals("Registrar devolução")) app.abrirDevolucao(l);
         else if (escolhido.equals("Excluir do painel")) app.excluirDoPainel(l);
     }
@@ -49,8 +50,10 @@ class DetalhesReserva {
     private static String texto(PainelController ctrl, Locacao l) {
         StringBuilder sb = new StringBuilder();
         sb.append(l.codigo()).append(" · ").append(l.cliente.nome);
-        sb.append("\nEtapa: ").append(l.arquivada ? "Arquivado (orçamento vencido)" : l.etapa.nome);
+        sb.append("\nEtapa: ").append(l.arquivada ? "Arquivado (" + (l.motivoArquivo.isEmpty() ? "orçamento vencido" : l.motivoArquivo) + ")"
+                : l.etapa.nome + (l.ocultaNoPainel ? " (fora do painel)" : ""));
         sb.append("\nSituação: ").append(ctrl.aviso(l));
+        for (String p : l.devolucoesParciais) sb.append("\nDevolução parcial: ").append(p);
         sb.append("\n\nEvento: ").append(TelaPrincipal.FMT_COMPLETA.format(l.evento));
         if (l.etapa == Etapa.ORCAMENTO) sb.append("\nOrçamento válido até: ").append(TelaPrincipal.FMT_COMPLETA.format(l.validade)).append(" (30 dias)");
         if (l.etapa != Etapa.ORCAMENTO) {

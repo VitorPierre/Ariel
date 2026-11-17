@@ -133,7 +133,7 @@ public class CatalogoController {
 
     /**
      * Inativa um cadastro ativo (ou reativa um inativo): produto, pacote, categoria, tema ou serviço.
-     * Reativar produto NÃO desfaz indisponibilidade por dano (UC21). Devolve um aviso (ou null).
+     * Reativar produto NÃO desfaz indisponibilidade por dano (UC08). Devolve um aviso (ou null).
      */
     public String alternarAtivo(Object cadastro) {
         String aviso = null;
@@ -155,6 +155,50 @@ public class CatalogoController {
         else throw new IllegalArgumentException("cadastro desconhecido");
         painel.notificar();
         return aviso;
+    }
+
+    // ================= Excluir ou desativar (UC06, UC08, UC09, UC10, UC12 — FA02) =================
+
+    /** O cadastro tem vínculos (está em orçamentos/locações, compõe pacotes, classifica produtos...)? */
+    public boolean temVinculos(Object cadastro) {
+        if (cadastro instanceof Catalogo.Item i) {
+            for (Locacao k : painel.locacoes)
+                for (Catalogo.Linha li : k.itens) if (li.item == i || li.item.consumo(i) > 0) return true;
+            if (i.tipo == Catalogo.Tipo.PRODUTO)
+                for (Catalogo.Item p : Catalogo.ITENS) if (p.componentes.containsKey(i)) return true;
+            return false;
+        }
+        if (cadastro instanceof Catalogo.Categoria c) {
+            for (Catalogo.Item p : Catalogo.ITENS) if (p.categoria == c) return true;
+            return false;
+        }
+        if (cadastro instanceof Catalogo.Tema t) {
+            for (Catalogo.Item p : Catalogo.ITENS) if (p.tema == t) return true;
+            return false;
+        }
+        if (cadastro instanceof Catalogo.Servico s) {
+            for (Locacao k : painel.locacoes)
+                for (ServicoContratado sc : k.servicos) if (sc.servico == s) return true;
+            return false;
+        }
+        throw new IllegalArgumentException("cadastro desconhecido");
+    }
+
+    /**
+     * FA02 "Excluir ou desativar": SEM vínculos o cadastro é excluído (MSG005); COM vínculos não pode ser
+     * excluído e é DESATIVADO, preservando o histórico (MSG006). Devolve a mensagem para a tela.
+     */
+    public String excluirOuDesativar(Object cadastro) {
+        if (!temVinculos(cadastro)) {
+            if (cadastro instanceof Catalogo.Item i) Catalogo.ITENS.remove(i);
+            else if (cadastro instanceof Catalogo.Categoria c) Catalogo.CATEGORIAS.remove(c);
+            else if (cadastro instanceof Catalogo.Tema t) Catalogo.TEMAS.remove(t);
+            else if (cadastro instanceof Catalogo.Servico s) Catalogo.SERVICOS.remove(s);
+            painel.notificar();
+            return Mensagens.MSG005;
+        }
+        String aviso = alternarAtivo(cadastro);           // ativo -> desativado
+        return Mensagens.MSG006 + (aviso == null ? "" : "\n" + aviso);
     }
 
     // ================= Auxiliares =================

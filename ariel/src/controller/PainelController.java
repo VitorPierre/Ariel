@@ -60,7 +60,7 @@ public class PainelController {
         for (Runnable r : new ArrayList<>(ouvintes)) r.run();
     }
 
-    /** RF18/RN02: orçamento sem entrada que passou dos 30 dias EXPIRA e é arquivado (sai do painel, fica no histórico). */
+    /** RF18: orçamento sem entrada que passou dos 30 dias EXPIRA e é arquivado (sai do painel, fica no histórico). */
     private void arquivarVencidos() {
         for (Locacao l : locacoes) {
             if (l.etapa == Etapa.ORCAMENTO && !l.temEntrada() && l.validade != null && l.validade.isBefore(hoje))
@@ -71,31 +71,31 @@ public class PainelController {
     /** Locações que aparecem no painel (sem as arquivadas). */
     public List<Locacao> doPainel(Etapa etapa) {
         List<Locacao> l = new ArrayList<>();
-        for (Locacao x : locacoes) if (!x.arquivada && x.etapa == etapa) l.add(x);
+        for (Locacao x : locacoes) if (!x.arquivada && !x.ocultaNoPainel && x.etapa == etapa) l.add(x);
         return l;
     }
 
     // ================= Consultas sobre clientes =================
 
     /**
-     * Inadimplência é uma situação DEFINIDA MANUALMENTE (RF03, RN18): o sistema só alerta; quem decide
+     * Inadimplência é uma situação DEFINIDA MANUALMENTE (RF03): o sistema só alerta; quem decide
      * se o cliente está inadimplente é a proprietária ou um funcionário (o sistema não substitui essa decisão).
      */
     public boolean inadimplente(Cliente c) {
         return c.inadimplenteManual;
     }
 
+    /** Clientes ativos (os que podem receber novos orçamentos). Inativos ficam só no histórico. */
+    public List<Cliente> clientesAtivos() {
+        List<Cliente> r = new ArrayList<>();
+        for (Cliente c : clientes) if (c.ativo) r.add(c);
+        return r;
+    }
+
     /** Há orçamento ou locação ainda aberto para o cliente? */
     public boolean temReservaEmAberto(Cliente c) {
         for (Locacao k : locacoes) if (k.cliente == c && !k.arquivada && k.etapa != Etapa.DEVOLVIDO) return true;
         return false;
-    }
-
-    /** Remove o cliente e as locações dele (a tela já avisou/confirmou). */
-    public void removerCliente(Cliente c) {
-        clientes.remove(c);
-        locacoes.removeIf(k -> k.cliente == c);
-        notificar();
     }
 
     /** Histórico do cliente, do evento mais recente para o mais antigo. */
@@ -107,7 +107,7 @@ public class PainelController {
     }
 
     /**
-     * Quem pode RETIRAR (RN26/UC20): o titular, os terceiros autorizados PARA ESTA LOCAÇÃO e as pessoas
+     * Quem pode RETIRAR (UC03/UC05): o titular, os terceiros autorizados PARA ESTA LOCAÇÃO e as pessoas
      * autorizadas no cadastro do cliente (tipo "Retira"). A DEVOLUÇÃO é livre: qualquer pessoa identificada.
      */
     public List<String> pessoasParaRetirar(Locacao l) {
@@ -127,7 +127,7 @@ public class PainelController {
                     + "Use \"Autorizar terceiro\" na locação para cadastrar quem vai retirar.");
     }
 
-    /** Registra uma pessoa autorizada pelo titular a retirar os itens DESTA locação (UC20). */
+    /** Registra uma pessoa autorizada pelo titular a retirar os itens DESTA locação (pessoa autorizada, UC03/UC05). */
     public void autorizarTerceiro(Locacao l, String nome, String documento, String contato) {
         if (l.arquivada || l.etapa != Etapa.ORCAMENTO || !l.temEntrada())
             throw new RegraNegocioException("A autorização vale para a retirada: use em uma locação confirmada que ainda não foi retirada.");
@@ -139,7 +139,7 @@ public class PainelController {
         notificar();
     }
 
-    // ================= Estoque e agenda (regra 5) =================
+    // ================= Estoque e agenda (UC15) =================
 
     /** Unidades do produto comprometidas no período (orçamentos com entrada paga e locações em aberto). */
     public int comprometido(Catalogo.Item produto, LocalDate ini, LocalDate fim) {
@@ -155,7 +155,10 @@ public class PainelController {
             if (k.retirada == null || k.devolucao == null) continue;
             LocalDate fimK = (k.etapa == Etapa.LOCADO && k.devolucao.isBefore(hoje)) ? hoje : k.devolucao; // atrasado ainda está fora
             if (k.retirada.isAfter(fim) || fimK.isBefore(ini)) continue;
-            for (Catalogo.Linha l : k.itens) soma += l.qtd * l.item.consumo(produto);
+            int usado = 0;
+            for (Catalogo.Linha l : k.itens) usado += l.qtd * l.item.consumo(produto);
+            if (k.etapa == Etapa.LOCADO) usado -= k.resolvidos.getOrDefault(produto, 0);   // devolução parcial já liberou
+            soma += Math.max(0, usado);
         }
         return soma;
     }
@@ -169,14 +172,107 @@ public class PainelController {
     private String itemEmFalta(Locacao l) { return itemEmFalta(l, l.retirada); }
 
     private String itemEmFalta(Locacao l, LocalDate ini) {
+        Catalogo.Item p = produtoEmFalta(l, ini);
+        return p == null ? null : p.nome;
+    }
+
+    /** Primeiro produto sem estoque suficiente no período (null = tudo disponível). */
+    private Catalogo.Item produtoEmFalta(Locacao l, LocalDate ini) {
         for (Catalogo.Linha linha : l.itens) {
             for (Catalogo.Item p : linha.item.produtos()) {
                 int usado = 0;
                 for (Catalogo.Linha o : l.itens) usado += o.qtd * o.item.consumo(p);
-                if (usado + comprometido(p, ini, l.devolucao, l) > p.estoqueUtil()) return p.nome;
+                if (usado + comprometido(p, ini, l.devolucao, l) > p.estoqueUtil()) return p;
             }
         }
         return null;
+    }
+
+    /** Reserva confirmada (ainda não retirada) que ficou sem estoque? Devolve o produto em falta (ou null). */
+    public Catalogo.Item semEstoque(Locacao l) {
+        if (l.arquivada || l.etapa != Etapa.ORCAMENTO || !l.temEntrada() || l.retirada == null || l.devolucao == null) return null;
+        return produtoEmFalta(l, l.retirada);
+    }
+
+    /** Uma reserva confirmada que fica sem estoque por causa de uma devolução (dano ou perda). */
+    public record ReservaAfetada(Locacao reserva, Catalogo.Item produto) {
+        @Override public String toString() {
+            return reserva.codigo() + " · " + reserva.cliente.nome + " (retirada "
+                    + java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu").format(reserva.retirada)
+                    + "): fica sem estoque de \"" + produto.nome + "\"";
+        }
+    }
+
+    /**
+     * Prévia da devolução: quais reservas CONFIRMADAS passariam a ficar sem estoque se esta conferência
+     * fosse registrada (perda reduz o estoque; dano com "Indisp.?" tira unidades do uso).
+     * Não altera nada: aplica as mudanças de forma temporária, confere e desfaz.
+     * (Mesmo princípio do UC08: sinalizar reservas futuras afetadas para substituição ou ajuste.)
+     */
+    public List<ReservaAfetada> reservasAfetadas(Locacao l, Devolucao d) {
+        java.util.Map<Catalogo.Item, Integer> perde = new java.util.LinkedHashMap<>();
+        for (Devolucao.ItemConferido c : d.itens) {
+            if (c.qtdAfetada <= 0) continue;
+            if (c.situacao == Devolucao.Situacao.PERDIDO
+                    || (c.situacao == Devolucao.Situacao.DANIFICADO && c.indisponibilizar))
+                perde.merge(c.produto, Math.min(c.qtdAfetada, c.qtd), Integer::sum);
+        }
+        List<ReservaAfetada> r = new ArrayList<>();
+        if (perde.isEmpty()) return r;
+
+        // reservas que já estavam sem estoque antes não entram (o aviso é sobre o que ESTA devolução causa)
+        List<Locacao> jaEmFalta = new ArrayList<>();
+        for (Locacao k : locacoes) if (semEstoque(k) != null) jaEmFalta.add(k);
+
+        java.util.Map<Catalogo.Item, int[]> antes = new java.util.LinkedHashMap<>();
+        java.util.Map<Catalogo.Item, Integer> resolvidosAntes = new java.util.LinkedHashMap<>(l.resolvidos);
+        try {
+            // aplica temporariamente: unidades conferidas deixam de estar com o cliente e o estoque útil diminui
+            for (Devolucao.ItemConferido c : d.itens) {
+                int resolvidas = c.situacao == Devolucao.Situacao.NAO_DEVOLVIDO ? c.qtd - c.qtdAfetada : c.qtd;
+                if (resolvidas > 0) l.resolvidos.merge(c.produto, resolvidas, Integer::sum);
+            }
+            for (java.util.Map.Entry<Catalogo.Item, Integer> e : perde.entrySet()) {
+                Catalogo.Item p = e.getKey();
+                antes.put(p, new int[]{p.estoque, p.indisponivel});
+                p.indisponivel = Math.min(p.estoque, p.indisponivel + e.getValue());
+            }
+            for (Locacao k : locacoes) {
+                if (k == l || jaEmFalta.contains(k)) continue;
+                Catalogo.Item falta = semEstoque(k);
+                if (falta != null && perde.containsKey(falta)) r.add(new ReservaAfetada(k, falta));
+            }
+        } finally {                                                   // desfaz tudo
+            for (java.util.Map.Entry<Catalogo.Item, int[]> e : antes.entrySet()) {
+                e.getKey().estoque = e.getValue()[0];
+                e.getKey().indisponivel = e.getValue()[1];
+            }
+            l.resolvidos.clear();
+            l.resolvidos.putAll(resolvidosAntes);
+        }
+        return r;
+    }
+
+    /**
+     * Opção B (decisão da equipe): ao registrar o SINAL de uma reserva futura, avisa (sem bloquear) se algum
+     * produto dela está ATRASADO com outro cliente. A disponibilidade conta que ele volte a tempo.
+     * A retirada continua protegida: item que não voltou conta como ocupado no dia de hoje.
+     */
+    public List<String> avisosDeAtraso(List<Catalogo.Linha> itens, LocalDate retirada, Locacao ignorar) {
+        List<String> r = new ArrayList<>();
+        if (itens == null || retirada == null || !retirada.isAfter(hoje)) return r;   // hoje/antes: o cálculo já conta o atrasado
+        java.util.Set<Catalogo.Item> produtos = new java.util.LinkedHashSet<>();
+        for (Catalogo.Linha li : itens) produtos.addAll(li.item.produtos());
+        java.time.format.DateTimeFormatter f = java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu");
+        for (Locacao k : locacoes) {
+            if (k == ignorar || k.etapa != Etapa.LOCADO || k.devolucao == null || !k.devolucao.isBefore(hoje)) continue;
+            for (Catalogo.Item p : produtos) {
+                int fora = k.pendentesDe(p);
+                if (fora > 0) r.add(fora + "× " + p.nome + " está(ão) atrasado(s) com " + k.codigo() + " · " + k.cliente.nome
+                        + " (devolução prevista " + f.format(k.devolucao) + ")");
+            }
+        }
+        return r;
     }
 
     // ================= Orçamentos (UC04) =================
@@ -186,6 +282,8 @@ public class PainelController {
                                   List<Catalogo.Linha> itens) {
         if (cliente == null || itens.isEmpty())
             throw new RegraNegocioException(Mensagens.MSG002 + "\n(escolha o cliente e ao menos um produto ou pacote)");
+        if (!cliente.ativo)
+            throw new RegraNegocioException(cliente.nome + " está com o cadastro inativo. Reative em Clientes para fazer um orçamento.");
         if (evento == null || retirada == null || devolucao == null
                 || retirada.isBefore(hoje) || evento.isBefore(retirada) || devolucao.isBefore(evento))
             throw new RegraNegocioException(Mensagens.MSG011
@@ -202,12 +300,13 @@ public class PainelController {
      * Cria um orçamento (validade fixa de 30 dias, RF18). O orçamento NÃO reserva estoque.
      * Se "entrada" for maior que zero é o fluxo "Registrar entrada e confirmar reserva": o sinal variável é pago,
      * a disponibilidade é revalidada (UC15) e o contrato é gerado (UC13). Se algo falhar, nada é criado.
-     * autorizadoPor: só preenchido quando o cliente é inadimplente e o usuário autorizou a locação (UC22).
+     * autorizadoPor: só preenchido quando o cliente é inadimplente e o usuário autorizou a locação (decisão da equipe: autorização registrada).
      */
     public Locacao criarOrcamento(Cliente cliente, LocalDate evento, LocalDate retirada, LocalDate devolucao,
                                   String modalidade, List<Catalogo.Linha> itens, List<ServicoContratado> servicos,
-                                  double entrada, Pagamento.Forma forma, Usuario autorizadoPor) {
+                                  double entrada, Pagamento.Forma forma, Usuario operador, Usuario autorizadoPor) {
         validarOrcamento(cliente, evento, retirada, devolucao, itens);
+        if (entrada > 0.005) exigirAdmin(operador, "registrar o pagamento do sinal");
         Locacao l = new Locacao(proximoId, cliente, Etapa.ORCAMENTO, evento,
                 hoje.plusDays(Regras.DIAS_VALIDADE_ORCAMENTO), retirada, devolucao, null, itens);
         l.emissao = hoje;
@@ -225,14 +324,27 @@ public class PainelController {
         return l;
     }
 
-    /** UC04 FA02: altera datas, itens e serviços de um orçamento ainda em negociação, SEM renovar a validade. */
+    /**
+     * UC04 FA01: altera um orçamento em negociação (SEM renovar a validade).
+     * UC05 FA02: altera uma reserva CONFIRMADA (sinal pago, ainda não retirada): revalida a disponibilidade
+     * desconsiderando a própria reserva; com conflito, exibe MSG010 e MANTÉM a reserva anterior; sem conflito,
+     * grava e gera nova versão do contrato (UC13).
+     */
     public void atualizarOrcamento(Locacao l, LocalDate evento, LocalDate retirada, LocalDate devolucao, String modalidade,
                                    List<Catalogo.Linha> itens, List<ServicoContratado> servicos) {
-        if (l.arquivada || (l.validade != null && l.validade.isBefore(hoje))) throw new RegraNegocioException(Mensagens.MSG017);
-        if (l.etapa != Etapa.ORCAMENTO || l.temEntrada())
-            throw new RegraNegocioException("Esta reserva já está confirmada (sinal pago). Para mudar itens ou datas, "
-                    + "cancele e faça um novo orçamento.");
+        if (l.arquivada) throw new RegraNegocioException(Mensagens.MSG017);
+        if (l.etapa != Etapa.ORCAMENTO)
+            throw new RegraNegocioException("Os itens já foram retirados: a reserva não pode mais ser alterada.");
+        boolean confirmada = l.temEntrada();
+        if (!confirmada && l.validade != null && l.validade.isBefore(hoje)) throw new RegraNegocioException(Mensagens.MSG017);
         validarOrcamento(l.cliente, evento, retirada, devolucao, itens);
+
+        // guarda a versão anterior para poder voltar se a nova tiver conflito
+        LocalDate ev0 = l.evento, ret0 = l.retirada, dev0 = l.devolucao;
+        String mod0 = l.modalidade;
+        List<Catalogo.Linha> itens0 = new ArrayList<>(l.itens);
+        List<ServicoContratado> serv0 = new ArrayList<>(l.servicos);
+
         l.evento = evento;
         l.retirada = retirada;
         l.devolucao = devolucao;
@@ -241,6 +353,22 @@ public class PainelController {
         l.itens.addAll(itens);
         l.servicos.clear();
         l.servicos.addAll(servicos);
+
+        if (confirmada) {
+            String erro = null;
+            String falta = itemEmFalta(l);
+            if (falta != null) erro = Mensagens.MSG010 + "\n(sem estoque de \"" + falta + "\" no período)\nA reserva anterior foi mantida.";
+            else if (l.pagoItens() > l.totalItens() + 0.005)
+                erro = "O novo total (" + moeda(l.totalItens()) + ") fica menor que o valor já pago (" + moeda(l.pagoItens())
+                        + "). A reserva anterior foi mantida.";
+            if (erro != null) {                                         // volta tudo como estava
+                l.evento = ev0; l.retirada = ret0; l.devolucao = dev0; l.modalidade = mod0;
+                l.itens.clear(); l.itens.addAll(itens0);
+                l.servicos.clear(); l.servicos.addAll(serv0);
+                throw new RegraNegocioException(erro);
+            }
+            gerarContratoAoConfirmar(l);                                // nova versão do contrato (UC13 FA02)
+        }
         notificar();
     }
 
@@ -256,7 +384,7 @@ public class PainelController {
     }
 
     /**
-     * Confirma a reserva: valida cadastro do cliente (MSG013), inadimplência (UC22), valor do sinal
+     * Confirma a reserva: valida cadastro do cliente (MSG013), inadimplência (decisão da equipe: autorização registrada), valor do sinal
      * e disponibilidade (UC15). Chamado antes de gravar o sinal.
      */
     private void validarSinal(Locacao l, double valor, Pagamento.Forma forma, Usuario autorizadoPor) {
@@ -264,19 +392,22 @@ public class PainelController {
         if (forma == null) throw new RegraNegocioException("Escolha a forma de pagamento.");
         if (l.cliente.cpf.trim().isEmpty() || l.cliente.endereco.trim().isEmpty())
             throw new RegraNegocioException(Mensagens.MSG013);
-        if (inadimplente(l.cliente) && l.autorizadoInadimplentePor.isEmpty()) {
-            if (autorizadoPor == null) throw new ExigeAutorizacaoException(Mensagens.MSG012);
-            l.autorizadoInadimplentePor = autorizadoPor.nome();                 // UC22: fica registrado quem autorizou
-        }
-        if (valor <= 0.005 || valor > l.totalItens() + 0.005)
-            throw new RegraNegocioException("O sinal deve ser maior que zero e não passar do total ("
-                    + moeda(l.totalItens()) + ").");
+        boolean precisaAutorizacao = inadimplente(l.cliente) && l.autorizadoInadimplentePor.isEmpty();
+        if (precisaAutorizacao && autorizadoPor == null) throw new ExigeAutorizacaoException(Mensagens.MSG012);
+        double minimo = Math.ceil(l.totalItens() * Regras.SINAL_MINIMO * 100 - 1e-9) / 100.0;
+        if (valor + 0.005 < minimo)
+            throw new RegraNegocioException(Mensagens.MSG014 + "\nO sinal informado (" + moeda(valor) + ") é "
+                    + percentual(valor, l.totalItens()) + " do total; o mínimo é " + moeda(minimo) + " (10%).");
+        if (valor > l.totalItens() + 0.005)
+            throw new RegraNegocioException("O sinal não pode passar do total (" + moeda(l.totalItens()) + ").");
         String falta = itemEmFalta(l);
         if (falta != null)
             throw new RegraNegocioException(Mensagens.MSG010 + "\n(sem estoque de \"" + falta + "\" no período)");
+        // só registra quem autorizou (decisão da equipe: autorização registrada) depois que TODAS as validações passaram
+        if (precisaAutorizacao) l.autorizadoInadimplentePor = autorizadoPor.nome();
     }
 
-    /** Registra o responsável que autorizou a locação de cliente inadimplente (UC22). Não quita dívida nenhuma. */
+    /** Registra o responsável que autorizou a locação de cliente inadimplente (decisão da equipe: autorização registrada). Não quita dívida nenhuma. */
     public void autorizarInadimplente(Locacao l, Usuario responsavel) {
         l.autorizadoInadimplentePor = responsavel.nome();
         notificar();
@@ -290,7 +421,7 @@ public class PainelController {
         if (servico == null || !servico.ativo) throw new RegraNegocioException("Escolha um serviço ativo.");
         if (valor < 0) throw new RegraNegocioException(Mensagens.MSG011);
         l.servicos.add(new ServicoContratado(servico, valor));
-        if (!DocumentoController.versoes(l, "Contrato").isEmpty()) gerarContratoAoConfirmar(l);   // mudou: nova versão (RN30)
+        if (!DocumentoController.versoes(l, "Contrato").isEmpty()) gerarContratoAoConfirmar(l);   // mudou: nova versão (UC13)
         notificar();
     }
 
@@ -304,8 +435,9 @@ public class PainelController {
         }
     }
 
-    /** UC13: contrato em PDF da locação (nova versão só se algo mudou). */
-    public Documento gerarContrato(Locacao l) {
+    /** UC13: contrato em PDF da locação (nova versão só se algo mudou). Acesso direto: só o Administrador. */
+    public Documento gerarContrato(Locacao l, Usuario operador) {
+        exigirAdmin(operador, "gerar documentos");
         if (l.arquivada || (l.etapa == Etapa.ORCAMENTO && !l.temEntrada()))
             throw new RegraNegocioException("O contrato só é gerado depois da confirmação da locação (sinal registrado).");
         try {
@@ -319,8 +451,9 @@ public class PainelController {
         }
     }
 
-    /** UC13: recibo em PDF dos pagamentos recebidos. */
-    public Documento gerarRecibo(Locacao l) {
+    /** UC13: recibo em PDF dos pagamentos recebidos. Só o Administrador. */
+    public Documento gerarRecibo(Locacao l, Usuario operador) {
+        exigirAdmin(operador, "gerar documentos");
         if (l.pagamentos.isEmpty()) throw new RegraNegocioException("Ainda não há pagamento registrado para emitir recibo.");
         try {
             Documento d = documentos.recibo(l, hoje);
@@ -337,7 +470,10 @@ public class PainelController {
     public String aviso(Locacao l) {
         switch (l.etapa) {
             case ORCAMENTO: {
-                if (l.temEntrada()) return "Entrada paga";
+                if (l.temEntrada()) {
+                    Catalogo.Item falta = semEstoque(l);
+                    return falta != null ? "Sem estoque: " + falta.nome : "Entrada paga";
+                }
                 long d = diasAte(l.validade);
                 if (d < 0) return "Vencido há " + dias(-d);
                 if (d == 0) return "Vence hoje";
@@ -348,6 +484,7 @@ public class PainelController {
             case LOCADO: {
                 long d = diasAte(l.devolucao);
                 if (d < 0) return "Atrasado há " + dias(-d);
+                if (!l.resolvidos.isEmpty()) return "Devolução parcial";
                 if (d == 0) return "Devolução hoje";
                 if (l.temSaldo()) return "Saldo pendente";
                 return "Quitado";
@@ -362,7 +499,7 @@ public class PainelController {
     /** Avisos urgentes aparecem em preto com letras brancas. */
     public boolean urgente(Locacao l) {
         switch (l.etapa) {
-            case ORCAMENTO: return !l.temEntrada() && diasAte(l.validade) <= 1;
+            case ORCAMENTO: return l.temEntrada() ? semEstoque(l) != null : diasAte(l.validade) <= 1;
             case LOCADO:    return diasAte(l.devolucao) <= 0;
             default:        return l.temSaldo();
         }
@@ -378,7 +515,7 @@ public class PainelController {
      * Confere se o cartão pode ir para a etapa de destino e diz qual é o próximo passo.
      * Regras:
      *  - só anda para frente: Orçamento -> Locado -> Devolvido;
-     *  - retirar exige sinal pago, SALDO TOTALMENTE QUITADO (RN04/UC19), cadastro completo e itens disponíveis (UC15);
+     *  - retirar exige sinal pago, SALDO TOTALMENTE QUITADO (UC07), cadastro completo e itens disponíveis (UC15);
      *  - devolver passa pela conferência por produto (tela Devoluções) e não exige pagamento.
      */
     public Acao validarMovimento(Locacao l, Etapa destino) {
@@ -394,18 +531,21 @@ public class PainelController {
     private void exigirRetiravel(Locacao l) {
         if (l.arquivada) throw new RegraNegocioException(Mensagens.MSG017);
         if (!l.temEntrada())
-            throw new RegraNegocioException(Mensagens.MSG014 + "\nSem sinal a data e os itens não são reservados.");
+            throw new PendenciaException(PendenciaException.Onde.RESERVA,
+                    Mensagens.MSG014 + "\nSem sinal a data e os itens não são reservados.");
         if (l.saldoItens() > 0.005)
-            throw new RegraNegocioException("Saldo pendente de " + moeda(l.saldoItens()) + ".\n"
+            throw new PendenciaException(PendenciaException.Onde.RESERVA, "Saldo pendente de " + moeda(l.saldoItens()) + ".\n"
                     + "O saldo deve ser quitado integralmente até a retirada (use Quitar saldo).");
         if (l.cliente.endereco.trim().isEmpty() || l.cliente.cpf.trim().isEmpty())
-            throw new RegraNegocioException(Mensagens.MSG013);
-        // retirada antecipada (UC19 FA03): o período ampliado precisa estar livre
-        String falta = itemEmFalta(l, hoje.isBefore(l.retirada) ? hoje : l.retirada);
-        if (falta != null) throw new RegraNegocioException(Mensagens.MSG010 + "\n(sem estoque de \"" + falta + "\")");
+            throw new PendenciaException(PendenciaException.Onde.CLIENTE, Mensagens.MSG013);
+        // retirada antecipada (UC05 FA03): o período ampliado precisa estar livre
+        Catalogo.Item falta = produtoEmFalta(l, hoje.isBefore(l.retirada) ? hoje : l.retirada);
+        if (falta != null)
+            throw new PendenciaException(PendenciaException.Onde.PRODUTO, falta,
+                    Mensagens.MSG010 + "\n(sem estoque de \"" + falta.nome + "\")");
     }
 
-    /** Registra a retirada/entrega: a locação passa a "Locado" com a data de hoje. Registra QUEM retirou (UC19). */
+    /** Registra a retirada/entrega: a locação passa a "Locado" com a data de hoje. Registra QUEM retirou (UC05 FA03). */
     public void registrarRetirada(Locacao l, String quem) {
         validarMovimento(l, Etapa.LOCADO);
         exigirQuemRetira(l, quem);
@@ -425,10 +565,13 @@ public class PainelController {
 
     /**
      * Registra a devolução (UC16) com a conferência por produto.
-     *  - Qualquer pessoa identificada pode devolver (RN27/28): basta o nome.
-     *  - Não exige pagamento: pendências financeiras ficam registradas (UC24 FA06).
-     *  - Atraso, dano e perda viram OCORRÊNCIAS com valor DIGITADO (0 = sem cobrança). O sistema nunca calcula multa.
+     *  - O titular ou qualquer pessoa identificada pode devolver: basta informar o nome.
+     *  - Não exige pagamento: registrar a condição não equivale a quitação (pendências ficam registradas).
+     *  - Atraso, dano e perda viram OCORRÊNCIAS (UC11) com valor DIGITADO (0 = sem cobrança).
+     *    Por decisão da equipe, o sistema não calcula nem sugere multa.
      *  - Perda definitiva reduz o estoque total; dano só tira do estoque se a proprietária decidir (indisponibilizar).
+     *  - Devolução parcial (FA02): itens "Ainda não voltou" continuam pendentes (não viram perda) e a locação
+     *    continua em Locado até tudo ser conferido. O que voltou já fica livre para novas reservas.
      */
     public void registrarDevolucao(Locacao l, Devolucao d, Usuario quem) {
         if (l.etapa != Etapa.LOCADO) throw new RegraNegocioException("Só é possível devolver uma locação em andamento (Locado).");
@@ -437,23 +580,45 @@ public class PainelController {
         long atraso = diasAtraso(l);
         if (d.multa < 0 || (d.multa > 0.005 && atraso == 0))
             throw new RegraNegocioException(d.multa < 0 ? Mensagens.MSG011 : "Não há atraso: não há multa a registrar.");
+        int conferidas = 0, pendentes = 0;
         for (Devolucao.ItemConferido c : d.itens) {
             if (c.situacao == Devolucao.Situacao.OK) {
                 if (c.valorCobrado > 0.005 || c.qtdAfetada > 0)
                     throw new RegraNegocioException("\"" + c.produto.nome + "\" está OK: sem valor cobrado nem unidades afetadas.");
+                conferidas += c.qtd;
                 continue;
             }
             if (c.qtdAfetada < 1 || c.qtdAfetada > c.qtd)
-                throw new RegraNegocioException("Informe quantas unidades de \"" + c.produto.nome + "\" ficaram "
-                        + c.situacao.toString().toLowerCase() + "s (de 1 a " + c.qtd + ").");
+                throw new RegraNegocioException("Informe quantas unidades de \"" + c.produto.nome + "\" ficaram com a situação \""
+                        + c.situacao + "\" (de 1 a " + c.qtd + ").");
+            if (c.situacao == Devolucao.Situacao.NAO_DEVOLVIDO) {
+                if (c.valorCobrado > 0.005)
+                    throw new RegraNegocioException("\"" + c.produto.nome + "\" ainda não voltou: não há cobrança. "
+                            + "Se for perda confirmada, registre como \"Perdido\".");
+                pendentes += c.qtdAfetada;
+                conferidas += c.qtd - c.qtdAfetada;
+                continue;
+            }
             if (c.valorCobrado < 0) throw new RegraNegocioException(Mensagens.MSG011);
+            conferidas += c.qtd;
         }
+        if (conferidas == 0)
+            throw new RegraNegocioException("Nenhum item voltou: não há devolução a registrar.");
+        boolean parcial = pendentes > 0;
 
         String por = quem == null ? "" : quem.nome();
-        if (atraso > 0)
+        if (atraso > 0 && (!parcial || d.multa > 0.005))              // o atraso é registrado no fechamento (ou quando há multa)
             l.ocorrencias.add(new Ocorrencia(Ocorrencia.Tipo.ATRASO, atraso + (atraso == 1 ? " dia" : " dias")
                     + " de atraso" + (d.multa > 0.005 ? "" : " (sem cobrança)"), d.multa, hoje, por));
+        StringBuilder faltam = new StringBuilder();
         for (Devolucao.ItemConferido c : d.itens) {
+            int resolvidas = c.situacao == Devolucao.Situacao.NAO_DEVOLVIDO ? c.qtd - c.qtdAfetada : c.qtd;
+            if (resolvidas > 0) l.resolvidos.merge(c.produto, resolvidas, Integer::sum);
+            if (c.situacao == Devolucao.Situacao.NAO_DEVOLVIDO) {
+                if (faltam.length() > 0) faltam.append(", ");
+                faltam.append(c.qtdAfetada).append("× ").append(c.produto.nome);
+                continue;
+            }
             if (c.situacao == Devolucao.Situacao.OK) continue;
             boolean perdido = c.situacao == Devolucao.Situacao.PERDIDO;
             l.ocorrencias.add(new Ocorrencia(perdido ? Ocorrencia.Tipo.PERDA : Ocorrencia.Tipo.DANO,
@@ -462,6 +627,12 @@ public class PainelController {
                     c.valorCobrado, hoje, por));
             if (perdido) c.produto.estoque = Math.max(0, c.produto.estoque - c.qtdAfetada);    // perda definitiva
             else if (c.indisponibilizar) c.produto.indisponivel += c.qtdAfetada;               // dano: decisão manual
+        }
+        if (parcial) {                                                // UC16 FA02: só registra o que voltou
+            l.devolucoesParciais.add(java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu").format(hoje)
+                    + " · devolvido por " + d.devolvidoPor.trim() + " · ainda faltam: " + faltam);
+            notificar();
+            return;
         }
         l.etapa = Etapa.DEVOLVIDO;
         l.devolvidoEm = hoje;
@@ -493,9 +664,10 @@ public class PainelController {
      *  - entrada (sinal): valor VARIÁVEL, qualquer valor de zero até o total; confirma a reserva e gera o contrato;
      *  - saldo: não passa do que falta (excesso seria reembolso, nunca crédito);
      *  - cobranças: multas e indenizações lançadas na devolução.
-     * autorizadoPor: só se o cliente é inadimplente e o usuário autorizou a locação (UC22).
+     * autorizadoPor: só se o cliente é inadimplente e o usuário autorizou a locação (decisão da equipe: autorização registrada).
      */
-    public void pagar(Locacao l, double valor, Pagamento.Forma forma, Usuario autorizadoPor) {
+    public void pagar(Locacao l, double valor, Pagamento.Forma forma, Usuario operador, Usuario autorizadoPor) {
+        exigirAdmin(operador, "registrar pagamentos");
         if (l.arquivada) throw new RegraNegocioException(Mensagens.MSG017);
         if (forma == null) throw new RegraNegocioException("Escolha a forma de pagamento.");
         if (valor <= 0.005) throw new RegraNegocioException("Informe um valor maior que zero.");
@@ -529,14 +701,24 @@ public class PainelController {
 
     // ================= Excluir =================
 
-    /** Remove o cartão do painel. A entrada já paga não é devolvida (regra 7). */
+    /**
+     * Tira o cartão do painel SEM apagar nada (o histórico é preservado).
+     *  - Orçamento: é CANCELADO (arquivado). Se tinha sinal, o sinal não é devolvido (UC05 FA04), continua no
+     *    faturamento e os itens voltam a ficar livres.
+     *  - Devolvida e quitada: só sai do painel; continua em Locações, no histórico do cliente e nos relatórios.
+     */
     public void excluir(Locacao l) {
+        if (l.arquivada || l.ocultaNoPainel) return;
         if (l.etapa == Etapa.LOCADO)
             throw new RegraNegocioException("Os itens estão com o cliente. Registre a devolução antes de excluir.");
-        if (l.arquivada) { locacoes.remove(l); notificar(); return; }
-        if (l.etapa == Etapa.DEVOLVIDO && l.temSaldo())
-            throw new RegraNegocioException("Há valores pendentes (" + moeda(l.saldo()) + "). Quite antes de excluir.");
-        locacoes.remove(l);
+        if (l.etapa == Etapa.DEVOLVIDO) {
+            if (l.temSaldo())
+                throw new RegraNegocioException("Há valores pendentes (" + moeda(l.saldo()) + "). Quite antes de excluir.");
+            l.ocultaNoPainel = true;
+        } else {
+            l.arquivada = true;
+            l.motivoArquivo = l.temEntrada() ? "Cancelado (sinal retido)" : "Cancelado";
+        }
         notificar();
     }
 
@@ -562,6 +744,21 @@ public class PainelController {
         }
         for (Locacao c : doPainel(Etapa.DEVOLVIDO)) if (c.temSaldo()) pendentes++;
         return new int[]{reservas, pendentes, vencer, previstas};
+    }
+
+    /**
+     * UC07/UC13: só o Administrador registra pagamentos e gera documentos. O Funcionário pode montar e salvar
+     * o orçamento; a confirmação fica pendente até o Administrador registrar o sinal (UC05 FA06).
+     */
+    private static void exigirAdmin(Usuario operador, String acao) {
+        if (operador == null || !operador.ehAdmin())
+            throw new RegraNegocioException("Acesso restrito: somente o Administrador pode " + acao + ".");
+    }
+
+    public static boolean podeRegistrarPagamento(Usuario u) { return u != null && u.ehAdmin(); }
+
+    private static String percentual(double valor, double total) {
+        return total <= 0 ? "0%" : String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f%%", valor / total * 100);
     }
 
     public static String moeda(double v) {

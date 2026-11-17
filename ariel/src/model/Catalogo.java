@@ -13,7 +13,8 @@ import java.util.Map;
  *  - Pacote   : conjunto de produtos com preço fechado; usa o MESMO estoque dos produtos avulsos (RF12).
  *  - Serviço  : entrega, montagem, balonismo... com valor de referência.
  *
- * Nada é excluído: cadastros são INATIVADOS (ativo = false) e o histórico é preservado (RN15–RN17).
+ * Excluir (FA02 de UC06/UC08/UC09/UC10/UC12): sem vínculos o cadastro é apagado; com vínculos é DESATIVADO
+ * (ativo = false) e o histórico é preservado.
  */
 public class Catalogo {
 

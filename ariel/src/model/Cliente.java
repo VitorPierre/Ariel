@@ -4,9 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Cadastro de cliente, compartilhado pela TelaPrincipal (painel) e pela TelaClientes.
- * A situação (Em dia / Inadimplente) é calculada pela TelaPrincipal:
- * vale a marcação manual OU uma locação com devolução atrasada.
+ * MODEL: cadastro de cliente. As regras (validação, CPF único, inadimplência, inativação) ficam no ClienteController.
+ * Inadimplência é MANUAL (RF03): só a marcação feita pela proprietária ou por um funcionário vale.
+ * UC03 FA03: sem vínculos o cliente pode ser excluído; com vínculos (orçamentos, locações, pagamentos) é
+ * DESATIVADO (ativo = false), preservando o histórico.
  */
 public class Cliente {
 
@@ -18,6 +19,7 @@ public class Cliente {
     public String endereco = "";
     public String observacoes = "";
     public boolean inadimplenteManual = false;
+    public boolean ativo = true;                 // false = desativado (não aparece para novos orçamentos)
     public final List<Autorizada> autorizadas = new ArrayList<>();
 
     public Cliente() { }

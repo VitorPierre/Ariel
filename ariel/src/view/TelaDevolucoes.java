@@ -14,7 +14,7 @@ import java.util.List;
  *  1) escolhe a locação em andamento (Locado) ou uma devolvida com pendências;
  *  2) confere cada PRODUTO (pacotes são desmembrados): OK, danificado ou perdido, quantas unidades
  *     foram afetadas e o valor a cobrar (digitado pela proprietária);
- *  3) o atraso é só informado (dias); a multa, se houver, é DIGITADA: o sistema não calcula nem sugere (RN05/RN06);
+ *  3) o atraso é só informado (dias); a multa, se houver, é DIGITADA: o sistema não calcula nem sugere (decisão da equipe);
  *  4) qualquer pessoa identificada pode devolver (basta o nome);
  *  5) "Registrar devolução" -> o PainelController valida as regras e cria as ocorrências;
  *  6) depois, "Quitar pendências" registra o pagamento de multa/indenização.
@@ -27,13 +27,14 @@ public class TelaDevolucoes extends JPanel {
     private final Usuario usuario;
 
     private final JComboBox<Locacao> cbLocacao = new JComboBox<>();
-    private final TelaPrincipal.Campo tfQuem = new TelaPrincipal.Campo("Nome de quem está devolvendo", 13);
+    private final TelaPrincipal.Campo tfQuem = new TelaPrincipal.Campo("Nome da pessoa", 13);
     private final ModeloConferencia modelo = new ModeloConferencia();
     private final JTable tabela = new JTable(modelo);
-    private final TelaPrincipal.Campo tfMulta = new TelaPrincipal.Campo("Multa de atraso (valor digitado; vazio = sem cobrança)", 13);
+    private final TelaPrincipal.Campo tfMulta = new TelaPrincipal.Campo("0,00", 13);
+    private JPanel blocoMulta;          // rótulo + campo da multa (só aparece quando há atraso)
     private final JLabel lblAtraso = TelaPrincipal.rotulo(" ", Font.PLAIN, 12);
     private final JTextArea resumo = new JTextArea();
-    private final JButton btnDevolver = TelaPrincipal.botaoCinza("Registrar devolução", 13);
+    private final JButton btnDevolver = TelaPrincipal.botaoPrimario("Registrar devolução", 13);
     private final JButton btnQuitar = TelaPrincipal.botaoCinza("Quitar pendências", 13);
     private final JLabel lblEstado = TelaPrincipal.rotulo(" ", Font.BOLD, 12);
 
@@ -46,16 +47,16 @@ public class TelaDevolucoes extends JPanel {
         this.app = app;
         this.ctrl = ctrl;
         this.usuario = usuario;
-        setBackground(TelaPrincipal.BRANCO);
-        setBorder(new EmptyBorder(14, 16, 16, 16));
+        setBackground(Tema.FUNDO);
+        setBorder(new EmptyBorder(24, 28, 24, 28));
 
         // ----- cabeçalho: título + escolha da locação -----
         JPanel cab = new JPanel(new BorderLayout());
         cab.setOpaque(false);
         cab.setBorder(new EmptyBorder(0, 0, 14, 0));
-        cab.add(TelaPrincipal.rotulo("Devolução e ocorrências", Font.BOLD, 20), BorderLayout.WEST);
+        cab.add(TelaPrincipal.rotulo("Devolução e ocorrências", Font.BOLD, 30), BorderLayout.WEST);
         TelaPrincipal.estilizarCombo(cbLocacao);
-        cbLocacao.setPreferredSize(new Dimension(340, 36));
+        cbLocacao.setPreferredSize(new Dimension(340, Tema.ALTURA));
         cbLocacao.addActionListener(e -> { if (!carregando) carregar((Locacao) cbLocacao.getSelectedItem()); });
         JPanel dir = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         dir.setOpaque(false);
@@ -65,15 +66,13 @@ public class TelaDevolucoes extends JPanel {
 
         // ----- esquerda: conferência dos itens + atraso -----
         TelaClientes.estilizarTabela(tabela, 12, 6);
-        int[] larg = {150, 40, 105, 70, 90, 55, 170};
+        int[] larg = {150, 52, 130, 84, 96, 76, 140};
         for (int i = 0; i < larg.length; i++) tabela.getColumnModel().getColumn(i).setPreferredWidth(larg[i]);
         JComboBox<Devolucao.Situacao> edSituacao = new JComboBox<>(Devolucao.Situacao.values());
         TelaPrincipal.estilizarCombo(edSituacao);
         tabela.getColumnModel().getColumn(2).setCellEditor(new DefaultCellEditor(edSituacao));
         tabela.setSurrendersFocusOnKeystroke(true);
-        JScrollPane rolagem = new JScrollPane(tabela);
-        rolagem.setBorder(new LineBorder(TelaPrincipal.CINZA_BORDA, 2));
-        rolagem.getViewport().setBackground(TelaPrincipal.BRANCO);
+        JScrollPane rolagem = Ui.rolagem(tabela);
 
         tfMulta.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(javax.swing.event.DocumentEvent e) { recalcular(); }
@@ -81,65 +80,57 @@ public class TelaDevolucoes extends JPanel {
             public void changedUpdate(javax.swing.event.DocumentEvent e) { recalcular(); }
         });
 
-        JPanel form = new JPanel(new GridLayout(0, 1, 0, 6));
-        form.setOpaque(false);
-        form.setBorder(new EmptyBorder(10, 0, 0, 0));
-        form.add(TelaPrincipal.rotulo("OCORRÊNCIA: selecione o item na tabela e use os botões (ou a coluna Situação)", Font.BOLD, 11));
-        JButton bDano = TelaPrincipal.botaoCinza("Registrar dano", 12), bPerda = TelaPrincipal.botaoCinza("Registrar perda", 12),
-                bLimpa = TelaPrincipal.botaoCinza("Item OK", 12);
+        JButton bDano = TelaPrincipal.botaoSuave("Registrar dano", 13), bPerda = TelaPrincipal.botaoSuave("Registrar perda", 13),
+                bFalta = TelaPrincipal.botaoSuave("Ainda não voltou", 13), bLimpa = TelaPrincipal.botaoNeutro("Item OK", 13);
         bDano.addActionListener(e -> marcarItem(Devolucao.Situacao.DANIFICADO));
         bPerda.addActionListener(e -> marcarItem(Devolucao.Situacao.PERDIDO));
+        bFalta.addActionListener(e -> marcarItem(Devolucao.Situacao.NAO_DEVOLVIDO));   // devolução parcial (UC16 FA02)
         bLimpa.addActionListener(e -> marcarItem(Devolucao.Situacao.OK));
-        JPanel botOc = new JPanel(new GridLayout(1, 3, 8, 0));
+        JPanel botOc = new JPanel(new GridLayout(1, 4, 8, 0));
         botOc.setOpaque(false);
         botOc.add(bDano);
         botOc.add(bPerda);
+        botOc.add(bFalta);
         botOc.add(bLimpa);
-        form.add(botOc);
-        form.add(lblAtraso);
-        form.add(tfMulta);
-        form.add(TelaPrincipal.rotulo("Quem está devolvendo os itens? (qualquer pessoa identificada)", Font.PLAIN, 12));
-        form.add(tfQuem);
+        JLabel dica = TelaPrincipal.rotulo("Selecione o item na tabela e use os botões (ou a coluna Situação):", Font.PLAIN, 12);
+        dica.setForeground(Tema.TEXTO_SUAVE);
+        lblAtraso.setForeground(Tema.TEXTO_MEDIO);
+        JPanel linhaCampos = new JPanel(new GridLayout(1, 2, 12, 0));
+        linhaCampos.setOpaque(false);
+        blocoMulta = Ui.bloco("Multa de atraso (R$) — vazio = sem cobrança", tfMulta);
+        linhaCampos.add(blocoMulta);
+        linhaCampos.add(Ui.bloco("Quem está devolvendo os itens?", tfQuem));
+        JPanel form = Ui.pilha(8, dica, botOc, lblAtraso, linhaCampos);
+        form.setBorder(new EmptyBorder(12, 0, 0, 0));
 
-        JPanel esq = new JPanel(new BorderLayout());
-        esq.setOpaque(false);
-        esq.add(TelaPrincipal.rotulo("CONFERÊNCIA DOS ITENS", Font.BOLD, 12), BorderLayout.NORTH);
         JPanel esqMiolo = new JPanel(new BorderLayout());
         esqMiolo.setOpaque(false);
-        esqMiolo.setBorder(new EmptyBorder(6, 0, 0, 0));
         esqMiolo.add(rolagem, BorderLayout.CENTER);
         esqMiolo.add(form, BorderLayout.SOUTH);
-        esq.add(esqMiolo, BorderLayout.CENTER);
+        JPanel esq = Ui.caixa("CONFERÊNCIA DOS ITENS", esqMiolo);
 
         // ----- direita: resumo, pendências e botões -----
         resumo.setEditable(false);
         resumo.setLineWrap(true);           // quebra o texto na largura da caixa
         resumo.setWrapStyleWord(true);
-        resumo.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        resumo.setBorder(new EmptyBorder(8, 10, 8, 10));
-        JScrollPane rolRes = new JScrollPane(resumo);
-        rolRes.setBorder(new LineBorder(TelaPrincipal.CINZA_BORDA, 2));
+        resumo.setFont(Tema.fonte(Font.PLAIN, 13));
+        resumo.setForeground(Tema.TEXTO);
+        resumo.setBorder(new EmptyBorder(0, 0, 0, 0));
+        JScrollPane rolRes = Ui.rolagem(resumo);
         btnDevolver.addActionListener(e -> registrar());
         btnQuitar.addActionListener(e -> { if (atual != null) app.pagar(atual); });
-        JPanel botoes = new JPanel(new GridLayout(0, 1, 0, 8));
-        botoes.setOpaque(false);
-        botoes.setBorder(new EmptyBorder(10, 0, 0, 0));
-        botoes.add(lblEstado);
-        botoes.add(btnDevolver);
-        botoes.add(btnQuitar);
+        lblEstado.setForeground(Tema.PRIMARIA_ESCURA);
+        JPanel botoes = Ui.pilha(10, lblEstado, btnDevolver, btnQuitar);
+        botoes.setBorder(new EmptyBorder(12, 0, 0, 0));
 
-        JPanel lateral = new JPanel(new BorderLayout());
-        lateral.setOpaque(false);
-        lateral.setPreferredSize(new Dimension(360, 100));
-        lateral.add(TelaPrincipal.rotulo("OCORRÊNCIAS E PENDÊNCIAS", Font.BOLD, 12), BorderLayout.NORTH);
         JPanel latMiolo = new JPanel(new BorderLayout());
         latMiolo.setOpaque(false);
-        latMiolo.setBorder(new EmptyBorder(6, 0, 0, 0));
         latMiolo.add(rolRes, BorderLayout.CENTER);
         latMiolo.add(botoes, BorderLayout.SOUTH);
-        lateral.add(latMiolo, BorderLayout.CENTER);
+        JPanel lateral = Ui.caixa("OCORRÊNCIAS E PENDÊNCIAS", latMiolo);
+        lateral.setPreferredSize(new Dimension(360, 100));
 
-        JPanel corpo = new JPanel(new BorderLayout(16, 0));
+        JPanel corpo = new JPanel(new BorderLayout(20, 0));
         corpo.setOpaque(false);
         corpo.add(esq, BorderLayout.CENTER);
         corpo.add(lateral, BorderLayout.EAST);
@@ -215,25 +206,37 @@ public class TelaDevolucoes extends JPanel {
             lblAtraso.setText("Devolução prevista " + TelaPrincipal.FMT_COMPLETA.format(l.devolucao)
                     + "  ·  hoje " + TelaPrincipal.FMT_COMPLETA.format(ctrl.hoje())
                     + "  ·  " + (atraso == 0 ? "no prazo" : atraso + (atraso == 1 ? " dia" : " dias") + " de atraso"));
-            tfMulta.setVisible(atraso > 0);
+            blocoMulta.setVisible(atraso > 0);
             double previa = atraso > 0 ? multa : 0;
             sb.append(l.codigo()).append(" · ").append(l.cliente.nome).append("\n\nPRÉVIA DA COBRANÇA (valores digitados)\n");
             if (atraso > 0) sb.append("Atraso de ").append(atraso).append(atraso == 1 ? " dia" : " dias").append(": ")
                     .append(multa > 0.005 ? TelaPrincipal.moeda(multa) : "sem cobrança").append('\n');
+            StringBuilder faltam = new StringBuilder();
             for (Devolucao.ItemConferido c : dados.itens) {
                 if (c.situacao == Devolucao.Situacao.OK) continue;
+                if (c.situacao == Devolucao.Situacao.NAO_DEVOLVIDO) {
+                    faltam.append("  ").append(c.qtdAfetada).append("× ").append(c.produto.nome).append('\n');
+                    continue;
+                }
                 sb.append(c.situacao).append(": ").append(c.qtdAfetada).append("× ").append(c.produto.nome)
                   .append(" = ").append(TelaPrincipal.moeda(c.valorCobrado)).append('\n');
                 previa += c.valorCobrado;
             }
             sb.append("\nTotal a cobrar na devolução: ").append(TelaPrincipal.moeda(previa));
+            if (faltam.length() > 0)
+                sb.append("\n\nDEVOLUÇÃO PARCIAL — continuam pendentes (não é perda):\n").append(faltam);
+            if (!l.devolucoesParciais.isEmpty()) {
+                sb.append("\n\nDevoluções parciais anteriores:\n");
+                for (String x : l.devolucoesParciais) sb.append("  ").append(x).append('\n');
+            }
             sb.append("\nSaldo dos itens: ").append(TelaPrincipal.moeda(l.saldoItens()));
             sb.append("\n\nA devolução não exige pagamento; o que ficar pendente continua registrado.");
-            lblEstado.setText("Em andamento · aguardando conferência");
+            lblEstado.setText(l.devolucoesParciais.isEmpty() ? "Em andamento · aguardando conferência"
+                    : "Devolução parcial · conferindo o que falta");
         } else {                                               // ----- locação já devolvida -----
             lblAtraso.setText("Devolvida em " + TelaPrincipal.FMT_COMPLETA.format(l.devolvidoEm)
                     + (l.devolvidoPor.isEmpty() ? "" : " por " + l.devolvidoPor));
-            tfMulta.setVisible(false);
+            blocoMulta.setVisible(false);
             sb.append(l.codigo()).append(" · ").append(l.cliente.nome).append("\n\nOCORRÊNCIAS\n");
             if (l.ocorrencias.isEmpty()) sb.append("(nenhuma)\n");
             for (Ocorrencia o : l.ocorrencias)
@@ -243,7 +246,7 @@ public class TelaDevolucoes extends JPanel {
             sb.append("\nPago: ").append(TelaPrincipal.moeda(l.pagoCobrancas()));
             sb.append("\nPendente: ").append(TelaPrincipal.moeda(l.saldoCobrancas()));
             lblEstado.setText(l.finalizada() ? "Finalizada" : "Devolvida · com pendências");
-            btnQuitar.setEnabled(ctrl.rotuloPagamento(l) != null);
+            btnQuitar.setEnabled(PainelController.podeRegistrarPagamento(app.usuario()) && ctrl.rotuloPagamento(l) != null);   // UC07
         }
         resumo.setText(sb.toString());
         resumo.setCaretPosition(0);
@@ -256,16 +259,29 @@ public class TelaDevolucoes extends JPanel {
         dados.devolvidoPor = tfQuem.getText().trim();
         dados.multa = Math.max(0, TelaPrincipal.lerValor(tfMulta.getText()));
         try {
+            // prévia: reservas confirmadas que ficariam sem estoque por causa de perda/dano desta devolução
+            java.util.List<PainelController.ReservaAfetada> afetadas = ctrl.reservasAfetadas(atual, dados);
+            StringBuilder impacto = new StringBuilder();
+            if (!afetadas.isEmpty()) {
+                impacto.append("\n\nATENÇÃO: com isso, estas reservas confirmadas ficam SEM ESTOQUE:\n");
+                for (PainelController.ReservaAfetada a : afetadas) impacto.append("  • ").append(a).append('\n');
+                impacto.append("A devolução será registrada mesmo assim; ajuste essas reservas (troca de item ou estoque).");
+            }
             // pergunta antes se houver cobrança (a devolução não pode ser desfeita)
             int r = JOptionPane.showOptionDialog(this,
                     "Registrar a devolução de " + atual.codigo() + " · " + atual.cliente.nome + "?\n\n"
-                            + resumo.getText().split("Saldo dos itens")[0].replaceFirst("(?s)^.*?PRÉVIA DA COBRANÇA[^\n]*\n", ""),
+                            + resumo.getText().split("Saldo dos itens")[0].replaceFirst("(?s)^.*?PRÉVIA DA COBRANÇA[^\n]*\n", "")
+                            + impacto,
                     "Confirmar devolução", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
                     new Object[]{"Registrar", "Cancelar"}, "Cancelar");
             if (r != 0) return;
             Locacao l = atual;
             ctrl.registrarDevolucao(l, dados, usuario);     // o controller valida as regras
             selecionar(l);                                  // mostra o resultado
+            if (!afetadas.isEmpty())
+                app.aviso("Devolução registrada.\n\nReservas que ficaram sem estoque (o cartão delas no Painel mostra "
+                        + "\"Sem estoque\"):\n" + impacto.toString().replaceFirst("(?s)^.*?ESTOQUE:\n", "")
+                        .replaceFirst("A devolução será registrada mesmo assim; ", "Próximo passo: "));
         } catch (RegraNegocioException e) {
             app.aviso(e.getMessage());
         }
@@ -277,12 +293,13 @@ public class TelaDevolucoes extends JPanel {
         if (dados == null || i < 0) { app.aviso("Selecione na tabela o item da ocorrência."); return; }
         if (tabela.isEditing()) tabela.getCellEditor().stopCellEditing();
         tabela.getModel().setValueAt(s, i, 2);
-        if (s != Devolucao.Situacao.OK) tabela.editCellAt(i, 6);
+        if (s == Devolucao.Situacao.NAO_DEVOLVIDO) tabela.editCellAt(i, 3);          // quantas ainda faltam
+        else if (s != Devolucao.Situacao.OK) tabela.editCellAt(i, 6);
     }
 
     /** Tabela da conferência: produto, qtd, situação, unidades afetadas, valor cobrado e se fica indisponível (dano). */
     class ModeloConferencia extends AbstractTableModel {
-        private final String[] colunas = {"Produto", "Qtd", "Situação", "Afetadas", "Valor cobrado", "Indisp.?", "Descrição da ocorrência"};
+        private final String[] colunas = {"Produto", "Qtd", "Situação", "Afetadas", "Valor (R$)", "Indisp.?", "Descrição da ocorrência"};
         public int getRowCount() { return dados == null ? 0 : dados.itens.size(); }
         public int getColumnCount() { return colunas.length; }
         @Override public String getColumnName(int c) { return colunas[c]; }
@@ -290,7 +307,10 @@ public class TelaDevolucoes extends JPanel {
         @Override public boolean isCellEditable(int r, int c) {
             if (dados == null || c < 2) return false;
             Devolucao.ItemConferido it = dados.itens.get(r);
-            return c == 2 || it.situacao != Devolucao.Situacao.OK && (c != 5 || it.situacao == Devolucao.Situacao.DANIFICADO);   // 6 = descrição
+            if (c == 2) return true;
+            if (it.situacao == Devolucao.Situacao.OK) return false;
+            if (it.situacao == Devolucao.Situacao.NAO_DEVOLVIDO) return c == 3;          // só quantas ainda faltam
+            return c != 5 || it.situacao == Devolucao.Situacao.DANIFICADO;              // 6 = descrição
         }
 
         public Object getValueAt(int i, int c) {
@@ -311,7 +331,11 @@ public class TelaDevolucoes extends JPanel {
             if (c == 2) {
                 it.situacao = (Devolucao.Situacao) v;
                 if (it.situacao == Devolucao.Situacao.OK) { it.valorCobrado = 0; it.qtdAfetada = 0; it.indisponibilizar = false; it.observacao = ""; }
-                else { if (it.qtdAfetada < 1) it.qtdAfetada = 1; it.indisponibilizar = it.situacao == Devolucao.Situacao.DANIFICADO; }   // começa com 1 unidade (ex.: 1 cadeira de 30)
+                else {
+                    if (it.qtdAfetada < 1) it.qtdAfetada = 1;                 // começa com 1 unidade (ex.: 1 cadeira de 30)
+                    it.indisponibilizar = it.situacao == Devolucao.Situacao.DANIFICADO;
+                    if (it.situacao == Devolucao.Situacao.NAO_DEVOLVIDO) { it.valorCobrado = 0; it.observacao = ""; }
+                }
             } else if (c == 3) {
                 try { it.qtdAfetada = Math.max(0, Math.min(it.qtd, Integer.parseInt(String.valueOf(v).trim()))); }
                 catch (NumberFormatException e) { /* mantém o valor anterior */ }

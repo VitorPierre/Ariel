@@ -7,20 +7,22 @@ package model;
 public final class Regras {
     private Regras() { }
 
-    /** RF18 / RN02: todo orçamento vale 30 dias, sem exceção (o sistema expira sozinho). */
+    /** RF18: todo orçamento vale 30 dias, sem exceção (o sistema expira sozinho). */
     public static final int DIAS_VALIDADE_ORCAMENTO = 30;
     /** Avisa "vence em X dias" a partir de X dias. */
     public static final int DIAS_ALERTA_VENCIMENTO = 3;
     /**
-     * O sinal (entrada) é VARIÁVEL e definido em cada orçamento (RF04): não existe percentual mínimo fixo.
-     * Estes são só os atalhos da tela "Novo orçamento" (10%, 20% ou 50% do total).
+     * Sinal (entrada) de 10%, 20% ou 50% do total (UC05). O usuário informa o valor depositado e o sistema
+     * calcula a porcentagem, validando se atinge o mínimo aceitável (10%). Atalhos da tela "Novo orçamento".
      */
     public static final double[] SINAIS_RAPIDOS = {0.10, 0.20, 0.50};
+    /** Menor sinal aceito (UC05: "mínimos aceitáveis de 10%, 20% ou 50%"). */
+    public static final double SINAL_MINIMO = 0.10;
     /** Atalho que já vem marcado (o protótipo mostra 20%). */
     public static final double SINAL_PADRAO = 0.20;
 
-    // Obs.: não há valores de multa aqui. Multas e indenizações NUNCA são calculadas nem sugeridas
-    // pelo sistema: a proprietária digita o valor (RN05, RN06, UC11).
+    // Obs.: não há valores de multa aqui. Por decisão da equipe, multas e indenizações NÃO são calculadas
+    // nem sugeridas pelo sistema: o valor é digitado na devolução (UC11/UC16).
 
     public static final int LOGIN_MIN = 3;
     public static final int SENHA_MIN = 6;

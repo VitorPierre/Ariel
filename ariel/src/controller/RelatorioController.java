@@ -24,6 +24,8 @@ public class RelatorioController {
         PRODUTOS("Produtos mais locados"),
         OCORRENCIAS("Ocorrências (atrasos, danos e perdas)"),
         DEMANDA("Demanda por tema (clientes distintos)"),
+        INADIMPLENCIA("Inadimplência (clientes e valores em aberto)"),
+        FLUXO_CAIXA("Fluxo de caixa (recebimentos por dia)"),
         AGENDA("Agenda do período");
 
         public final String nome;
@@ -59,6 +61,8 @@ public class RelatorioController {
             case PRODUTOS:    produtos(r, de, ate); break;
             case OCORRENCIAS: ocorrencias(r, de, ate); break;
             case DEMANDA:     demanda(r, de, ate, filtro); break;
+            case INADIMPLENCIA: inadimplencia(r); break;
+            case FLUXO_CAIXA: fluxoCaixa(r, de, ate); break;
             default:          agenda(r, de, ate, filtro); break;
         }
         return r;
@@ -183,6 +187,74 @@ public class RelatorioController {
                 : "Tema \"" + filtroTema + "\": " + clientes.values().iterator().next().size() + " cliente(s) distinto(s).");
         r.criterio = "Conta clientes distintos com orçamentos emitidos no período que incluem pacotes do tema. "
                 + "Interesse não é locação confirmada; contatos não registrados não contam.";
+    }
+
+    // ---------- inadimplência (UC18) ----------
+    /** Clientes marcados como inadimplentes e todos os valores em aberto (saldo de itens e multas/indenizações). */
+    private void inadimplencia(Relatorio r) {
+        r.colunas = new String[]{"Cliente", "CPF", "Situação", "Locações em aberto", "Saldo dos itens", "Multas/indenizações", "Total em aberto"};
+        double totItens = 0, totCob = 0;
+        int marcados = 0;
+        for (Cliente c : painel.clientes) {
+            double itens = 0, cob = 0;
+            int abertas = 0;
+            for (Locacao l : painel.locacoes) {
+                if (l.cliente != c || !confirmada(l) || !l.temSaldo()) continue;
+                abertas++;
+                itens += l.saldoItens();
+                cob += l.saldoCobrancas();
+            }
+            boolean inad = painel.inadimplente(c);
+            if (!inad && abertas == 0) continue;
+            if (inad) marcados++;
+            r.linhas.add(new String[]{c.nome + (c.ativo ? "" : " (inativo)"), c.cpf, inad ? "Inadimplente" : "Em dia",
+                    String.valueOf(abertas), m(itens), m(cob), m(itens + cob)});
+            totItens += itens;
+            totCob += cob;
+        }
+        r.linhas.sort((a, b) -> Double.compare(valor(b[6]), valor(a[6])));
+        r.totais.add(marcados + " cliente(s) marcado(s) como inadimplente(s)");
+        r.totais.add("Em aberto: itens " + m(totItens) + " + multas/indenizações " + m(totCob) + " = " + m(totItens + totCob));
+        r.criterio = "Situação atual (não depende do período). Inadimplência é marcada manualmente; "
+                + "valores em aberto vêm das locações confirmadas.";
+    }
+
+    private static double valor(String moeda) {
+        String t = moeda.replaceAll("[^0-9,]", "").replace(",", ".");
+        try { return Double.parseDouble(t); } catch (NumberFormatException e) { return 0; }
+    }
+
+    // ---------- fluxo de caixa (UC18) ----------
+    /** Recebimentos agrupados por dia, separados por forma de pagamento, com acumulado do período. */
+    private void fluxoCaixa(Relatorio r, LocalDate de, LocalDate ate) {
+        Pagamento.Forma[] formas = Pagamento.Forma.values();
+        r.colunas = new String[formas.length + 3];
+        r.colunas[0] = "Data";
+        for (int i = 0; i < formas.length; i++) r.colunas[i + 1] = formas[i].toString();
+        r.colunas[formas.length + 1] = "Total do dia";
+        r.colunas[formas.length + 2] = "Acumulado";
+        java.util.TreeMap<LocalDate, double[]> dias = new java.util.TreeMap<>();
+        for (Locacao l : painel.locacoes)
+            for (Pagamento p : l.pagamentos)
+                if (dentro(p.data(), de, ate)) dias.computeIfAbsent(p.data(), k -> new double[formas.length])[p.forma().ordinal()] += p.valor();
+        double acumulado = 0;
+        double[] porForma = new double[formas.length];
+        for (Map.Entry<LocalDate, double[]> e : dias.entrySet()) {
+            String[] linha = new String[formas.length + 3];
+            linha[0] = d(e.getKey());
+            double dia = 0;
+            for (int i = 0; i < formas.length; i++) { linha[i + 1] = m(e.getValue()[i]); dia += e.getValue()[i]; porForma[i] += e.getValue()[i]; }
+            acumulado += dia;
+            linha[formas.length + 1] = m(dia);
+            linha[formas.length + 2] = m(acumulado);
+            r.linhas.add(linha);
+        }
+        StringBuilder t = new StringBuilder();
+        for (int i = 0; i < formas.length; i++) t.append(i > 0 ? "   " : "").append(formas[i]).append(": ").append(m(porForma[i]));
+        r.totais.add(t.toString());
+        r.totais.add("TOTAL DE ENTRADAS NO CAIXA: " + m(acumulado));
+        r.criterio = "Só entradas de caixa efetivamente registradas (sinais, saldos, multas e indenizações). "
+                + "Saídas e estornos não são controlados pelo sistema.";
     }
 
     // ---------- agenda (UC14) ----------

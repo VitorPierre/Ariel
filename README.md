@@ -112,6 +112,16 @@ O visual (rosa e branco) segue o [DESIGN.md](ariel/DESIGN.md). Toda cor, fonte e
 - Os dados ficam **em memória** (não há banco de dados), então são perdidos ao fechar o programa
 - Backup, estorno/reembolso e fotos ainda não foram implementados
 
-## Autor
+## Autores
+
+**Abelardo Bulhões** · [@AbelardoXp00](https://github.com/AbelardoXp00)
+
+**Daniel Isidro** · [@d4nisidro](https://github.com/d4nisidro)
+
+**Kawane Santos** · [@KawaneSilva14](https://github.com/KawaneSilva14)
+
+**Lucas Texeira** · [@luccasts](https://github.com/luccasts)
 
 **Vitor Pierre** · [@VitorPierre](https://github.com/VitorPierre)
+
+

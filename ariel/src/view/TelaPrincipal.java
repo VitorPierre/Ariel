@@ -290,6 +290,20 @@ public class TelaPrincipal extends JFrame {
             public void mouseExited(MouseEvent e)  { fechar.setBackground(BORDA_CLARA); fechar.setForeground(PRETO); }
         });
         fechar.addActionListener(e -> dispose());
+        // botão de minimizar (ao lado dos outros)
+        JButton minimizar = new JButton(new IconeMinimizar());
+        minimizar.setFocusPainted(false);
+        minimizar.setContentAreaFilled(false);
+        minimizar.setOpaque(true);
+        minimizar.setBackground(BORDA_CLARA);
+        minimizar.setBorder(new EmptyBorder(2, 12, 2, 12));
+        minimizar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        minimizar.setToolTipText("Minimizar");
+        minimizar.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { minimizar.setBackground(CINZA_SEL); }
+            public void mouseExited(MouseEvent e)  { minimizar.setBackground(BORDA_CLARA); }
+        });
+        minimizar.addActionListener(e -> setExtendedState(Frame.ICONIFIED));
         // botão de tela cheia (ao lado do fechar)
         btnTelaCheia = new JButton(new IconeTelaCheia());
         btnTelaCheia.setFocusPainted(false);
@@ -306,6 +320,7 @@ public class TelaPrincipal extends JFrame {
         btnTelaCheia.addActionListener(e -> alternarTelaCheia());
         JPanel botoesJanela = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         botoesJanela.setOpaque(false);
+        botoesJanela.add(minimizar);
         botoesJanela.add(btnTelaCheia);
         botoesJanela.add(fechar);
         barra.add(botoesJanela, BorderLayout.EAST);
@@ -370,6 +385,20 @@ public class TelaPrincipal extends JFrame {
             g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             g.drawLine(x + 2, y + 2, x + 6, y + 6);
             g.drawLine(x + 6, y + 6, x + 10, y + 2);
+            g.dispose();
+        }
+    }
+
+    /** Ícone de minimizar: um traço horizontal. */
+    private static class IconeMinimizar implements Icon {
+        public int getIconWidth() { return 14; }
+        public int getIconHeight() { return 14; }
+        public void paintIcon(Component c, Graphics g0, int x, int y) {
+            Graphics2D g = (Graphics2D) g0.create();
+            Tema.suave(g);
+            g.setColor(PRETO);
+            g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.drawLine(x + 2, y + 11, x + 11, y + 11);
             g.dispose();
         }
     }

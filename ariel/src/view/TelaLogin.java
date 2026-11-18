@@ -83,7 +83,27 @@ public class TelaLogin extends JFrame {
             public void mouseExited(MouseEvent e)  { fechar.setBackground(TelaPrincipal.BORDA_CLARA); fechar.setForeground(TelaPrincipal.PRETO); }
         });
         fechar.addActionListener(e -> dispose());
-        barra.add(fechar, BorderLayout.EAST);
+
+        JButton minimizar = new JButton("–");
+        minimizar.setFont(Tema.fonte(Font.BOLD, 14));
+        minimizar.setFocusPainted(false);
+        minimizar.setContentAreaFilled(false);
+        minimizar.setOpaque(true);
+        minimizar.setBackground(TelaPrincipal.BORDA_CLARA);
+        minimizar.setBorder(new EmptyBorder(2, 14, 2, 14));
+        minimizar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        minimizar.setToolTipText("Minimizar");
+        minimizar.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { minimizar.setBackground(TelaPrincipal.CINZA_SEL); }
+            public void mouseExited(MouseEvent e)  { minimizar.setBackground(TelaPrincipal.BORDA_CLARA); }
+        });
+        minimizar.addActionListener(e -> setExtendedState(Frame.ICONIFIED));
+
+        JPanel botoesJanela = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        botoesJanela.setOpaque(false);
+        botoesJanela.add(minimizar);
+        botoesJanela.add(fechar);
+        barra.add(botoesJanela, BorderLayout.EAST);
 
         MouseAdapter mover = new MouseAdapter() {     // arrastar a janela pela barra
             public void mousePressed(MouseEvent e) { arrasteJanela = e.getPoint(); }

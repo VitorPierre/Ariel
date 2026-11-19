@@ -24,6 +24,8 @@ public class Catalogo {
     public static class Categoria {
         public String nome, descricao;
         public boolean ativo = true;
+        /** Id em `Categoria` no banco. null = ainda não foi salvo. Uso exclusivo do DAO. */
+        public Integer idCategoria;
         public Categoria(String nome, String descricao) { this.nome = nome; this.descricao = descricao; }
         @Override public String toString() { return nome; }
     }
@@ -32,6 +34,8 @@ public class Catalogo {
     public static class Tema {
         public String nome, descricao;
         public boolean ativo = true;
+        /** Id em `Tema` no banco. null = ainda não foi salvo. Uso exclusivo do DAO. */
+        public Integer idTema;
         public Tema(String nome, String descricao) { this.nome = nome; this.descricao = descricao; }
         @Override public String toString() { return nome; }
     }
@@ -41,6 +45,8 @@ public class Catalogo {
         public String nome, descricao;
         public double valor;                 // valor de referência
         public boolean ativo = true;
+        /** Id em `Serviço` no banco. null = ainda não foi salvo. Uso exclusivo do DAO. */
+        public Integer idServico;
         public Servico(String nome, String descricao, double valor) {
             this.nome = nome; this.descricao = descricao; this.valor = valor;
         }
@@ -60,6 +66,9 @@ public class Catalogo {
         public Tema tema;                    // só pacote
         public boolean ativo = true;
         public final Map<Item, Integer> componentes = new LinkedHashMap<>(); // só pacote
+        /** Id em `Produto` (tipo PRODUTO) ou em `Pacote` (tipo PACOTE) no banco — tabelas diferentes
+         *  conforme o schema. null = ainda não foi salvo. Uso exclusivo do DAO. */
+        public Integer idProduto, idPacote;
 
         public Item(String nome, Tipo tipo, double preco, int estoque) {
             this.nome = nome;

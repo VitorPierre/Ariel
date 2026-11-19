@@ -21,6 +21,8 @@ public class Cliente {
     public boolean inadimplenteManual = false;
     public boolean ativo = true;                 // false = desativado (não aparece para novos orçamentos)
     public final List<Autorizada> autorizadas = new ArrayList<>();
+    /** Id da linha em `Cliente` no banco. null = ainda não foi salvo no MySQL. Uso exclusivo do DAO. */
+    public Integer idCliente;
 
     public Cliente() { }
 

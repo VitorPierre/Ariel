@@ -5,6 +5,8 @@ import controller.PainelController;
 import controller.UsuarioController;
 import dao.ConexaoFabrica;
 import dao.ModoPersistencia;
+import dao.RepositorioException;
+import model.RegraNegocioException;
 import model.Usuario;
 import view.TelaLogin;
 import view.TelaPrincipal;
@@ -13,8 +15,6 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import java.awt.GraphicsEnvironment;
-import java.sql.Connection;
-import java.sql.SQLException;
 
 /**
  * Ponto de entrada do sistema "Ariel · Conto de Fadas".
@@ -26,20 +26,11 @@ import java.sql.SQLException;
  */
 public class Main {
 
-    // controllers compartilhados
-    private static final UsuarioController USUARIOS = new UsuarioController();
+    // controllers compartilhados (criado dentro do main: no modo MySQL o construtor já acessa o banco)
+    private static UsuarioController usuarios;
     private static PainelController painelMemoria;
 
     public static void main(String[] args) {
-        ModoPersistencia modo = ConexaoFabrica.modo();
-        System.out.println("modo() = " + modo);
-        if (modo == ModoPersistencia.MYSQL) {
-            try (Connection c = ConexaoFabrica.abrir()) {
-                System.out.println("Conectou! " + c.getMetaData().getDatabaseProductVersion());
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        }
         // Sem ambiente gráfico (ex.: servidor sem tela) não é possível abrir a janela
         if (GraphicsEnvironment.isHeadless()) {
             System.err.println("Ambiente sem interface gráfica: não foi possível abrir a tela.");
@@ -66,23 +57,50 @@ public class Main {
             } catch (Exception e) {
                 System.err.println("Não foi possível aplicar o visual padrão: " + e.getMessage());
             }
+            try {
+                usuarios = new UsuarioController();
+            } catch (RepositorioException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(null,
+                        "Não foi possível conectar ao banco de dados.\n\n" + detalhe(e)
+                                + "\n\nConfira se o MySQL está ligado e se host, porta, usuário e senha"
+                                + "\nem ariel.properties estão certos (ou use modo=memoria).",
+                        "Banco de dados indisponível", JOptionPane.ERROR_MESSAGE);
+                return;                    // nenhuma janela aberta: o programa termina
+            }
             abrirLogin();
         });
     }
 
+    /** Mensagem do erro junto com a causa (ex.: "Access denied for user 'root'"). */
+    private static String detalhe(RepositorioException e) {
+        Throwable causa = e.getCause();
+        return causa == null || causa.getMessage() == null ? e.getMessage() : e.getMessage() + "\n" + causa.getMessage();
+    }
+
     /** Abre a tela de login (um LoginController novo, para zerar o contador de tentativas). */
     private static void abrirLogin() {
-        TelaLogin login = new TelaLogin(new LoginController(USUARIOS), Main::abrirPrincipal);
+        TelaLogin login = new TelaLogin(new LoginController(usuarios), Main::abrirPrincipal);
         login.setVisible(true);
         login.toFront();
     }
 
-    /** Login certo: abre o sistema. Ao clicar em "Sair" volta para o login. */
+    /**
+     * Login certo: abre o sistema. Ao clicar em "Sair" volta para o login.
+     * Se o banco cair entre o login e a carga dos dados, a falha volta como RegraNegocioException:
+     * a TelaLogin mostra a mensagem e continua aberta.
+     */
     private static void abrirPrincipal(Usuario usuario) {
-        PainelController painel = ConexaoFabrica.modo() == ModoPersistencia.MYSQL
-                ? new PainelController(usuario)
-                : (painelMemoria != null ? painelMemoria : (painelMemoria = new PainelController()));
-        TelaPrincipal tela = new TelaPrincipal(painel, USUARIOS, usuario, Main::abrirLogin);
+        PainelController painel;
+        try {
+            painel = ConexaoFabrica.modo() == ModoPersistencia.MYSQL
+                    ? new PainelController(usuario)
+                    : (painelMemoria != null ? painelMemoria : (painelMemoria = new PainelController()));
+        } catch (RepositorioException e) {
+            e.printStackTrace();
+            throw new RegraNegocioException("Não foi possível carregar os dados do banco. Confira se o MySQL está ligado.");
+        }
+        TelaPrincipal tela = new TelaPrincipal(painel, usuarios, usuario, Main::abrirLogin);
         tela.setVisible(true);
         tela.toFront();
     }

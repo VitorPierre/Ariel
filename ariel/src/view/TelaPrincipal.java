@@ -498,8 +498,8 @@ public class TelaPrincipal extends JFrame {
         JPanel topo = new JPanel(new BorderLayout());          // logo + nome, centralizados na barra lateral
         topo.setOpaque(false);
         topo.setAlignmentX(Component.LEFT_ALIGNMENT);
-        topo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 130));
-        marcaLogo = new JLabel(Logo.icone(84), SwingConstants.CENTER);
+        topo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 145));
+        marcaLogo = new JLabel(Logo.icone(96), SwingConstants.CENTER);
         topo.add(marcaLogo, BorderLayout.CENTER);
         subLogo = new JLabel("CONTO DE FADAS", SwingConstants.CENTER);
         subLogo.setFont(Tema.fonte(Font.PLAIN, 10));
@@ -586,7 +586,7 @@ public class TelaPrincipal extends JFrame {
         barraTopo.remove(btnRecolher);
         barraTopo.add(btnRecolher, menuRecolhido ? BorderLayout.CENTER : BorderLayout.EAST);
 
-        marcaLogo.setIcon(Logo.icone(menuRecolhido ? 36 : 84));
+        marcaLogo.setIcon(Logo.icone(menuRecolhido ? 42 : 96));
         subLogo.setVisible(!menuRecolhido);
 
         for (int i = 0; i < MENU.length; i++) {

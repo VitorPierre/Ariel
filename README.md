@@ -6,7 +6,7 @@
 
 Sistema desktop para gestão de **locação de decoração para festas e eventos**: clientes, catálogo, orçamentos, reservas, pagamentos, retirada, devolução, contratos em PDF e relatórios.
 
-Projeto acadêmico de **Engenharia de Software II (UniRios)**, desenvolvido em **Java Swing** com arquitetura **MVC** e baseado na Documentação Ariel v0.5.
+Projeto acadêmico de **Engenharia de Software II (UniRios)**, desenvolvido em **Java Swing** com arquitetura **MVC** e baseado na Documentação Ariel v0.6.
 
 ![Java](https://img.shields.io/badge/Java-17%2B-orange)
 ![Interface](https://img.shields.io/badge/interface-Swing-pink)

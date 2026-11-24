@@ -21,8 +21,8 @@
 -- Recomendo rodar este script num banco de teste antes de usar em produção.
 -- ============================================================================
 
-CREATE DATABASE IF NOT EXISTS `mydb` DEFAULT CHARACTER SET utf8mb4;
-USE `mydb`;
+CREATE DATABASE IF NOT EXISTS `ariel` DEFAULT CHARACTER SET utf8mb4;
+USE `ariel`;
 
 CREATE TABLE IF NOT EXISTS `Usuario` (
   `idUsuario` INT NOT NULL AUTO_INCREMENT,

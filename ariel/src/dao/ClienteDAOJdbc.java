@@ -53,11 +53,11 @@ public class ClienteDAOJdbc implements ClienteDAO {
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection con = ConexaoFabrica.abrir();
              PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            preencher(ps, c, false);
-            ps.executeUpdate();
-            try (ResultSet gerado = ps.getGeneratedKeys()) {
-                if (gerado.next()) c.idCliente = gerado.getInt(1);
-            }
+                preencher(ps, c, false);
+                ps.executeUpdate();
+                try (ResultSet gerado = ps.getGeneratedKeys()) {
+                    if (gerado.next()) c.idCliente = gerado.getInt(1);
+                }
         } catch (SQLException e) {
             throw new RepositorioException("Não consegui salvar o cliente \"" + c.nome + "\".", e);
         }

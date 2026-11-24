@@ -1,12 +1,25 @@
 package controller;
 
+import dao.CatalogoDAO;
+import dao.CatalogoDAOJdbc;
+import dao.CatalogoDAOMemoria;
+import dao.ClienteDAO;
+import dao.ClienteDAOJdbc;
+import dao.ClienteDAOMemoria;
+import dao.ConexaoFabrica;
+import dao.LocacaoDAO;
+import dao.LocacaoDAOJdbc;
+import dao.LocacaoDAOMemoria;
+import dao.ModoPersistencia;
 import model.*;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * CONTROLLER do painel: guarda clientes e locações e aplica TODAS as regras de negócio
@@ -23,12 +36,69 @@ public class PainelController {
     private final List<Runnable> ouvintes = new ArrayList<>();
     /** Geração de contrato e recibo em PDF (UC13). */
     public final DocumentoController documentos = new DocumentoController();
+    private final ClienteDAO clienteDAO;
+    private final CatalogoDAO catalogoDAO;
+    private final LocacaoDAO locacaoDAO;
     private LocalDate hoje = agora();
     private int proximoId = 1;
 
     public PainelController() {
-        popularExemplo();
+        this(null);
+    }
+
+    public PainelController(Usuario usuarioAtual) {
+        if (ConexaoFabrica.modo() == ModoPersistencia.MYSQL && usuarioAtual != null && usuarioAtual.idUsuario() != null) {
+            this.clienteDAO = new ClienteDAOJdbc(usuarioAtual);
+            this.catalogoDAO = new CatalogoDAOJdbc(usuarioAtual);
+            this.locacaoDAO = new LocacaoDAOJdbc(usuarioAtual, this.clientes);
+            this.clientes.addAll(clienteDAO.listar());
+            carregarCatalogoDoBanco();
+            this.locacoes.addAll(locacaoDAO.listar());
+            for (Locacao l : locacoes) {
+                if (l.id >= proximoId) proximoId = l.id + 1;
+            }
+        } else {
+            this.clienteDAO = new ClienteDAOMemoria(this.clientes);
+            this.catalogoDAO = new CatalogoDAOMemoria();
+            this.locacaoDAO = new LocacaoDAOMemoria(this.locacoes);
+            popularExemplo();
+        }
         arquivarVencidos();
+    }
+
+    public ClienteDAO clienteDAO() { return clienteDAO; }
+    public CatalogoDAO catalogoDAO() { return catalogoDAO; }
+
+    private void carregarCatalogoDoBanco() {
+        List<Catalogo.Categoria> cats = catalogoDAO.listarCategorias();
+        List<Catalogo.Tema> temas = catalogoDAO.listarTemas();
+        List<Catalogo.Servico> servs = catalogoDAO.listarServicos();
+        List<Catalogo.Item> itens = catalogoDAO.listarItens();
+
+        Map<Integer, Catalogo.Categoria> catPorId = new HashMap<>();
+        for (Catalogo.Categoria c : cats) if (c.idCategoria != null) catPorId.put(c.idCategoria, c);
+        Map<Integer, Catalogo.Tema> temaPorId = new HashMap<>();
+        for (Catalogo.Tema t : temas) if (t.idTema != null) temaPorId.put(t.idTema, t);
+
+        for (Catalogo.Item item : itens) {
+            if (item.categoria != null && item.categoria.idCategoria != null) {
+                Catalogo.Categoria mesma = catPorId.get(item.categoria.idCategoria);
+                if (mesma != null) item.categoria = mesma;
+            }
+            if (item.tema != null && item.tema.idTema != null) {
+                Catalogo.Tema mesmo = temaPorId.get(item.tema.idTema);
+                if (mesmo != null) item.tema = mesmo;
+            }
+        }
+
+        Catalogo.CATEGORIAS.clear();
+        Catalogo.CATEGORIAS.addAll(cats);
+        Catalogo.TEMAS.clear();
+        Catalogo.TEMAS.addAll(temas);
+        Catalogo.SERVICOS.clear();
+        Catalogo.SERVICOS.addAll(servs);
+        Catalogo.ITENS.clear();
+        Catalogo.ITENS.addAll(itens);
     }
 
     // ================= Data e ouvintes =================
@@ -63,8 +133,11 @@ public class PainelController {
     /** RF18: orçamento sem entrada que passou dos 30 dias EXPIRA e é arquivado (sai do painel, fica no histórico). */
     private void arquivarVencidos() {
         for (Locacao l : locacoes) {
-            if (l.etapa == Etapa.ORCAMENTO && !l.temEntrada() && l.validade != null && l.validade.isBefore(hoje))
-            { l.arquivada = true; l.motivoArquivo = "Expirado"; }
+            if (!l.arquivada && l.etapa == Etapa.ORCAMENTO && !l.temEntrada() && l.validade != null && l.validade.isBefore(hoje)) {
+                l.arquivada = true;
+                l.motivoArquivo = "Expirado";
+                locacaoDAO.salvar(l);
+            }
         }
     }
 
@@ -136,6 +209,7 @@ public class PainelController {
         for (Cliente.Autorizada a : l.autorizados)
             if (a.nome.equalsIgnoreCase(nome.trim())) throw new RegraNegocioException(Mensagens.MSG003);
         l.autorizados.add(new Cliente.Autorizada(nome.trim(), documento.trim(), contato == null ? "" : contato.trim(), "Retira"));
+        locacaoDAO.salvar(l);
         notificar();
     }
 
@@ -315,11 +389,12 @@ public class PainelController {
         boolean confirma = entrada > 0.005;
         if (confirma) validarSinal(l, entrada, forma, autorizadoPor);     // falhou? nada foi criado ainda
         proximoId++;
-        locacoes.add(l);
         if (confirma) {
             l.pagamentos.add(new Pagamento(hoje, entrada, forma, Pagamento.Tipo.ENTRADA));
             gerarContratoAoConfirmar(l);
         }
+        locacaoDAO.salvar(l);
+        if (!locacoes.contains(l)) locacoes.add(l);
         notificar();
         return l;
     }
@@ -369,6 +444,7 @@ public class PainelController {
             }
             gerarContratoAoConfirmar(l);                                // nova versão do contrato (UC13 FA02)
         }
+        locacaoDAO.salvar(l);
         notificar();
     }
 
@@ -380,6 +456,7 @@ public class PainelController {
                     + "Se for cancelar mesmo assim, use \"Excluir do painel\".");
         l.arquivada = true;
         l.motivoArquivo = "Cancelado";
+        locacaoDAO.salvar(l);
         notificar();
     }
 
@@ -410,6 +487,7 @@ public class PainelController {
     /** Registra o responsável que autorizou a locação de cliente inadimplente (decisão da equipe: autorização registrada). Não quita dívida nenhuma. */
     public void autorizarInadimplente(Locacao l, Usuario responsavel) {
         l.autorizadoInadimplentePor = responsavel.nome();
+        locacaoDAO.salvar(l);
         notificar();
     }
 
@@ -422,6 +500,7 @@ public class PainelController {
         if (valor < 0) throw new RegraNegocioException(Mensagens.MSG011);
         l.servicos.add(new ServicoContratado(servico, valor));
         if (!DocumentoController.versoes(l, "Contrato").isEmpty()) gerarContratoAoConfirmar(l);   // mudou: nova versão (UC13)
+        locacaoDAO.salvar(l);
         notificar();
     }
 
@@ -443,10 +522,12 @@ public class PainelController {
         try {
             Documento d = documentos.contrato(l, hoje);
             l.contratoPendente = false;
+            locacaoDAO.salvar(l);
             notificar();
             return d;
         } catch (java.io.IOException | RuntimeException e) {
             l.contratoPendente = true;
+            locacaoDAO.salvar(l);
             throw new RegraNegocioException(Mensagens.MSG016);
         }
     }
@@ -553,6 +634,7 @@ public class PainelController {
         l.retirada = hoje;
         l.retiradoPor = quem;
         if (l.devolucao == null || l.devolucao.isBefore(hoje)) l.devolucao = hoje.plusDays(1);
+        locacaoDAO.salvar(l);
         notificar();
     }
 
@@ -625,18 +707,20 @@ public class PainelController {
                     c.qtdAfetada + "× " + c.produto.nome + (c.qtdAfetada < c.qtd ? " (de " + c.qtd + ")" : "")
                             + (c.observacao == null || c.observacao.isBlank() ? "" : " — " + c.observacao.trim()),
                     c.valorCobrado, hoje, por));
-            if (perdido) c.produto.estoque = Math.max(0, c.produto.estoque - c.qtdAfetada);    // perda definitiva
-            else if (c.indisponibilizar) c.produto.indisponivel += c.qtdAfetada;               // dano: decisão manual
+            if (perdido) { c.produto.estoque = Math.max(0, c.produto.estoque - c.qtdAfetada); catalogoDAO.salvarItem(c.produto); }    // perda definitiva
+            else if (c.indisponibilizar) { c.produto.indisponivel += c.qtdAfetada; catalogoDAO.salvarItem(c.produto); }               // dano: decisão manual
         }
         if (parcial) {                                                // UC16 FA02: só registra o que voltou
             l.devolucoesParciais.add(java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu").format(hoje)
                     + " · devolvido por " + d.devolvidoPor.trim() + " · ainda faltam: " + faltam);
+            locacaoDAO.salvar(l);
             notificar();
             return;
         }
         l.etapa = Etapa.DEVOLVIDO;
         l.devolvidoEm = hoje;
         l.devolvidoPor = d.devolvidoPor.trim();
+        locacaoDAO.salvar(l);
         notificar();
     }
 
@@ -685,6 +769,7 @@ public class PainelController {
             double paraItens = Math.min(valor, l.saldoItens());
             if (paraItens > 0.005) l.pagamentos.add(new Pagamento(hoje, paraItens, forma, Pagamento.Tipo.SALDO));
             if (valor - paraItens > 0.005) l.pagamentos.add(new Pagamento(hoje, valor - paraItens, forma, Pagamento.Tipo.COBRANCA));
+            locacaoDAO.salvar(l);
             notificar();
             return;
         } else {
@@ -696,6 +781,7 @@ public class PainelController {
             throw new RegraNegocioException("O valor passa do que falta pagar (" + moeda(limite) + ").");
         l.pagamentos.add(new Pagamento(hoje, valor, forma, tipo));
         if (tipo == Pagamento.Tipo.ENTRADA) gerarContratoAoConfirmar(l);      // RF13: contrato após o sinal
+        locacaoDAO.salvar(l);
         notificar();
     }
 
@@ -719,6 +805,7 @@ public class PainelController {
             l.arquivada = true;
             l.motivoArquivo = l.temEntrada() ? "Cancelado (sinal retido)" : "Cancelado";
         }
+        locacaoDAO.salvar(l);
         notificar();
     }
 

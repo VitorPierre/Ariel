@@ -60,7 +60,8 @@ public class CatalogoController {
         p.preco = preco;
         p.estoque = total;
         p.indisponivel = indisponivel;
-        if (existente == null) Catalogo.ITENS.add(p);
+        painel.catalogoDAO().salvarItem(p);
+        if (existente == null && !Catalogo.ITENS.contains(p)) Catalogo.ITENS.add(p);
         painel.notificar();
         return p;
     }
@@ -84,7 +85,8 @@ public class CatalogoController {
         p.preco = preco;
         p.componentes.clear();                  // contratos e locações antigas guardam o que foi vendido (as Linhas), não mudam
         p.componentes.putAll(componentes);
-        if (existente == null) Catalogo.ITENS.add(p);
+        painel.catalogoDAO().salvarItem(p);
+        if (existente == null && !Catalogo.ITENS.contains(p)) Catalogo.ITENS.add(p);
         painel.notificar();
         return p;
     }
@@ -98,7 +100,8 @@ public class CatalogoController {
         Catalogo.Categoria c = existente != null ? existente : new Catalogo.Categoria(nome, "");
         c.nome = nome;
         c.descricao = descricao == null ? "" : descricao.trim();
-        if (existente == null) Catalogo.CATEGORIAS.add(c);
+        painel.catalogoDAO().salvarCategoria(c);
+        if (existente == null && !Catalogo.CATEGORIAS.contains(c)) Catalogo.CATEGORIAS.add(c);
         painel.notificar();
         return c;
     }
@@ -110,7 +113,8 @@ public class CatalogoController {
         Catalogo.Tema t = existente != null ? existente : new Catalogo.Tema(nome, "");
         t.nome = nome;
         t.descricao = descricao == null ? "" : descricao.trim();
-        if (existente == null) Catalogo.TEMAS.add(t);
+        painel.catalogoDAO().salvarTema(t);
+        if (existente == null && !Catalogo.TEMAS.contains(t)) Catalogo.TEMAS.add(t);
         painel.notificar();
         return t;
     }
@@ -124,7 +128,8 @@ public class CatalogoController {
         s.nome = nome;
         s.descricao = descricao == null ? "" : descricao.trim();
         s.valor = valor;       // preço de catálogo: contratos anteriores NÃO mudam (cada um guarda o valor contratado)
-        if (existente == null) Catalogo.SERVICOS.add(s);
+        painel.catalogoDAO().salvarServico(s);
+        if (existente == null && !Catalogo.SERVICOS.contains(s)) Catalogo.SERVICOS.add(s);
         painel.notificar();
         return s;
     }
@@ -141,6 +146,7 @@ public class CatalogoController {
         if (cadastro instanceof Catalogo.Item i) {
             novo = !i.ativo;
             i.ativo = novo;
+            painel.catalogoDAO().salvarItem(i);
             if (!novo) {
                 int n = 0;
                 for (Locacao k : painel.locacoes) {
@@ -149,9 +155,9 @@ public class CatalogoController {
                 }
                 if (n > 0) aviso = n + " reserva(s) em aberto usam este item e continuam valendo.";
             }
-        } else if (cadastro instanceof Catalogo.Categoria c) { novo = !c.ativo; c.ativo = novo; }
-        else if (cadastro instanceof Catalogo.Tema t) { novo = !t.ativo; t.ativo = novo; }
-        else if (cadastro instanceof Catalogo.Servico s) { novo = !s.ativo; s.ativo = novo; }
+        } else if (cadastro instanceof Catalogo.Categoria c) { novo = !c.ativo; c.ativo = novo; painel.catalogoDAO().salvarCategoria(c); }
+        else if (cadastro instanceof Catalogo.Tema t) { novo = !t.ativo; t.ativo = novo; painel.catalogoDAO().salvarTema(t); }
+        else if (cadastro instanceof Catalogo.Servico s) { novo = !s.ativo; s.ativo = novo; painel.catalogoDAO().salvarServico(s); }
         else throw new IllegalArgumentException("cadastro desconhecido");
         painel.notificar();
         return aviso;
@@ -190,10 +196,10 @@ public class CatalogoController {
      */
     public String excluirOuDesativar(Object cadastro) {
         if (!temVinculos(cadastro)) {
-            if (cadastro instanceof Catalogo.Item i) Catalogo.ITENS.remove(i);
-            else if (cadastro instanceof Catalogo.Categoria c) Catalogo.CATEGORIAS.remove(c);
-            else if (cadastro instanceof Catalogo.Tema t) Catalogo.TEMAS.remove(t);
-            else if (cadastro instanceof Catalogo.Servico s) Catalogo.SERVICOS.remove(s);
+            if (cadastro instanceof Catalogo.Item i) { painel.catalogoDAO().excluirItem(i); Catalogo.ITENS.remove(i); }
+            else if (cadastro instanceof Catalogo.Categoria c) { painel.catalogoDAO().excluirCategoria(c); Catalogo.CATEGORIAS.remove(c); }
+            else if (cadastro instanceof Catalogo.Tema t) { painel.catalogoDAO().excluirTema(t); Catalogo.TEMAS.remove(t); }
+            else if (cadastro instanceof Catalogo.Servico s) { painel.catalogoDAO().excluirServico(s); Catalogo.SERVICOS.remove(s); }
             painel.notificar();
             return Mensagens.MSG005;
         }

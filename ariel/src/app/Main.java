@@ -3,6 +3,8 @@ package app;
 import controller.LoginController;
 import controller.PainelController;
 import controller.UsuarioController;
+import dao.ConexaoFabrica;
+import dao.ModoPersistencia;
 import model.Usuario;
 import view.TelaLogin;
 import view.TelaPrincipal;
@@ -11,6 +13,8 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import java.awt.GraphicsEnvironment;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 /**
  * Ponto de entrada do sistema "Ariel · Conto de Fadas".
@@ -22,11 +26,20 @@ import java.awt.GraphicsEnvironment;
  */
 public class Main {
 
-    // controllers compartilhados (dados em memória enquanto o programa estiver aberto)
+    // controllers compartilhados
     private static final UsuarioController USUARIOS = new UsuarioController();
-    private static final PainelController PAINEL = new PainelController();
+    private static PainelController painelMemoria;
 
     public static void main(String[] args) {
+        ModoPersistencia modo = ConexaoFabrica.modo();
+        System.out.println("modo() = " + modo);
+        if (modo == ModoPersistencia.MYSQL) {
+            try (Connection c = ConexaoFabrica.abrir()) {
+                System.out.println("Conectou! " + c.getMetaData().getDatabaseProductVersion());
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
         // Sem ambiente gráfico (ex.: servidor sem tela) não é possível abrir a janela
         if (GraphicsEnvironment.isHeadless()) {
             System.err.println("Ambiente sem interface gráfica: não foi possível abrir a tela.");
@@ -66,7 +79,10 @@ public class Main {
 
     /** Login certo: abre o sistema. Ao clicar em "Sair" volta para o login. */
     private static void abrirPrincipal(Usuario usuario) {
-        TelaPrincipal tela = new TelaPrincipal(PAINEL, USUARIOS, usuario, Main::abrirLogin);
+        PainelController painel = ConexaoFabrica.modo() == ModoPersistencia.MYSQL
+                ? new PainelController(usuario)
+                : (painelMemoria != null ? painelMemoria : (painelMemoria = new PainelController()));
+        TelaPrincipal tela = new TelaPrincipal(painel, USUARIOS, usuario, Main::abrirLogin);
         tela.setVisible(true);
         tela.toFront();
     }

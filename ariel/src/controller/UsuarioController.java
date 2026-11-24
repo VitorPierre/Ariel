@@ -1,5 +1,10 @@
 package controller;
 
+import dao.ConexaoFabrica;
+import dao.ModoPersistencia;
+import dao.UsuarioDAO;
+import dao.UsuarioDAOJdbc;
+import dao.UsuarioDAOMemoria;
 import model.Perfil;
 import model.RegraNegocioException;
 import model.Regras;
@@ -11,16 +16,32 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * CONTROLLER dos usuários: guarda a lista (por enquanto só na memória) e aplica as regras de
- * cadastro. As telas de Login e Configurações chamam estes métodos e mostram as mensagens de erro.
+ * CONTROLLER dos usuários: aplica as regras de cadastro e persiste via UsuarioDAO
+ * (MySQL ou memória, conforme ariel.properties).
  */
 public class UsuarioController {
     private final List<Usuario> usuarios = new ArrayList<>();
+    private final UsuarioDAO dao;
 
     public UsuarioController() {
-        // Usuários iniciais para testar. TROQUE as senhas antes de usar de verdade.
-        usuarios.add(new Usuario("Proprietária", "admin", Senha.gerarHash("admin123".toCharArray()), Perfil.ADMIN));
-        usuarios.add(new Usuario("Funcionário", "funcionario", Senha.gerarHash("func123".toCharArray()), Perfil.FUNCIONARIO));
+        if (ConexaoFabrica.modo() == ModoPersistencia.MYSQL) {
+            this.dao = new UsuarioDAOJdbc();
+            this.usuarios.addAll(dao.listar());
+            if (this.usuarios.isEmpty()) {
+                // Usuários iniciais para o primeiro acesso no banco vazio. TROQUE as senhas antes de usar de verdade.
+                Usuario admin = new Usuario("Proprietária", "admin", Senha.gerarHash("admin123".toCharArray()), Perfil.ADMIN);
+                Usuario func = new Usuario("Funcionário", "funcionario", Senha.gerarHash("func123".toCharArray()), Perfil.FUNCIONARIO);
+                dao.salvar(admin);
+                dao.salvar(func);
+                usuarios.add(admin);
+                usuarios.add(func);
+            }
+        } else {
+            // Usuários iniciais para testar. TROQUE as senhas antes de usar de verdade.
+            usuarios.add(new Usuario("Proprietária", "admin", Senha.gerarHash("admin123".toCharArray()), Perfil.ADMIN));
+            usuarios.add(new Usuario("Funcionário", "funcionario", Senha.gerarHash("func123".toCharArray()), Perfil.FUNCIONARIO));
+            this.dao = new UsuarioDAOMemoria(usuarios);
+        }
     }
 
     public List<Usuario> listar() { return new ArrayList<>(usuarios); }
@@ -43,7 +64,8 @@ public class UsuarioController {
             validarNovaSenha(senha, confirma);
             if (perfil == null) throw new RegraNegocioException("Escolha o perfil do usuário.");
             Usuario u = new Usuario(nome.trim(), lg, Senha.gerarHash(senha), perfil);
-            usuarios.add(u);
+            dao.salvar(u);
+            if (!usuarios.contains(u)) usuarios.add(u);
             return u;
         } finally {
             apagar(senha, confirma);
@@ -69,6 +91,7 @@ public class UsuarioController {
             u.alterarNome(nome.trim());
             u.alterarLogin(lg);
             if (trocaSenha) u.alterarSenhaHash(Senha.gerarHash(nova));
+            dao.salvar(u);
         } finally {
             apagar(senhaAtual, nova, confirma);
         }

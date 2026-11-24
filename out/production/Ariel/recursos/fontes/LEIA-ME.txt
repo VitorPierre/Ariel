@@ -1,0 +1,5 @@
+Fonte Inter (Regular e Bold), de Rasmus Andersson — https://rsms.me/inter/
+Licença: SIL Open Font License 1.1 (uso e redistribuição livres, inclusive embutida em programas).
+Usada em todo o sistema (ver DESIGN.md, seção 4). Registrada ao iniciar por view/Tema.java.
+Para os títulos o design pede "Outfit": se estiver instalada no computador (ou se os arquivos
+Outfit-SemiBold.ttf / Outfit-Bold.ttf forem colocados nesta pasta), o sistema usa; senão, usa Inter em negrito.

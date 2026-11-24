@@ -28,9 +28,20 @@ public final class ConexaoFabrica {
         if (props == null) {
             props = new Properties();
             try (InputStream in = ConexaoFabrica.class.getClassLoader().getResourceAsStream(ARQUIVO)) {
-                if (in != null) props.load(in);
+                if (in != null) {
+                    props.load(in);
+                    return props;
+                }
             } catch (IOException e) {
                 throw new RepositorioException("Não consegui ler " + ARQUIVO, e);
+            }
+            java.nio.file.Path caminho = java.nio.file.Path.of(ARQUIVO);
+            if (java.nio.file.Files.exists(caminho)) {
+                try (InputStream in = java.nio.file.Files.newInputStream(caminho)) {
+                    props.load(in);
+                } catch (IOException e) {
+                    throw new RepositorioException("Não consegui ler " + ARQUIVO, e);
+                }
             }
         }
         return props;
@@ -46,11 +57,11 @@ public final class ConexaoFabrica {
         Properties p = props();
         String host = p.getProperty("mysql.host", "localhost");
         String porta = p.getProperty("mysql.porta", "3306");
-        String banco = p.getProperty("mysql.banco", "mydb");
+        String banco = p.getProperty("mysql.banco", "ariel");
         String usuario = p.getProperty("mysql.usuario", "root");
-        String senha = p.getProperty("mysql.senha", "");
+        String senha = p.getProperty("mysql.senha", "123456");
         String url = "jdbc:mysql://" + host + ":" + porta + "/" + banco
-                + "?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=America/Bahia";
+                + "?characterEncoding=UTF-8&serverTimezone=America/Sao_Paulo";
         try {
             // Carrega o driver explicitamente: evita um erro confuso se o .jar não estiver no classpath.
             Class.forName("com.mysql.cj.jdbc.Driver");

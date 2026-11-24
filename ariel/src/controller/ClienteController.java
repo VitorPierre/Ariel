@@ -99,7 +99,8 @@ public class ClienteController {
         c.whatsapp = texto(whatsapp);
         c.endereco = endereco.trim();
         c.observacoes = texto(observacoes);
-        if (existente == null) painel.clientes.add(c);
+        painel.clienteDAO().salvar(c);
+        if (existente == null && !painel.clientes.contains(c)) painel.clientes.add(c);
         painel.notificar();
         return c;
     }
@@ -107,6 +108,7 @@ public class ClienteController {
     /** Inadimplência é decisão MANUAL (RF03). Devolve a nova situação. */
     public boolean alternarInadimplencia(Cliente c) {
         c.inadimplenteManual = !c.inadimplenteManual;
+        painel.clienteDAO().salvar(c);
         painel.notificar();
         return c.inadimplenteManual;
     }
@@ -122,17 +124,20 @@ public class ClienteController {
      */
     public boolean excluirOuDesativar(Cliente c) {
         if (!temVinculos(c)) {
+            painel.clienteDAO().excluir(c);
             painel.clientes.remove(c);
             painel.notificar();
             return true;
         }
         c.ativo = false;
+        painel.clienteDAO().salvar(c);
         painel.notificar();
         return false;
     }
 
     public void reativar(Cliente c) {
         c.ativo = true;
+        painel.clienteDAO().salvar(c);
         painel.notificar();
     }
 

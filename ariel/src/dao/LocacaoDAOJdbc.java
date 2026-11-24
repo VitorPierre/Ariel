@@ -31,11 +31,17 @@ import java.util.List;
 public class LocacaoDAOJdbc implements LocacaoDAO {
 
     private final Usuario usuarioAtual;
+    private final List<Cliente> clientesConhecidos;
 
     public LocacaoDAOJdbc(Usuario usuarioAtual) {
+        this(usuarioAtual, null);
+    }
+
+    public LocacaoDAOJdbc(Usuario usuarioAtual, List<Cliente> clientesConhecidos) {
         if (usuarioAtual == null || usuarioAtual.idUsuario() == null)
             throw new IllegalArgumentException("usuarioAtual precisa estar logado e já salvo no banco (idUsuario != null).");
         this.usuarioAtual = usuarioAtual;
+        this.clientesConhecidos = clientesConhecidos;
     }
 
     @Override public List<Locacao> listar() {
@@ -77,6 +83,11 @@ public class LocacaoDAOJdbc implements LocacaoDAO {
     }
 
     private Cliente buscarCliente(Connection con, int idCliente) throws SQLException {
+        if (clientesConhecidos != null) {
+            for (Cliente c : clientesConhecidos) {
+                if (c.idCliente != null && c.idCliente == idCliente) return c;
+            }
+        }
         String sql = "SELECT idCliente, Nome, CPF, Inadiplente, rg, instagram, whatsapp, endereco, observacoes, ativo "
                 + "FROM Cliente WHERE idCliente = ? AND Usuario_idUsuario = ?";
         try (PreparedStatement ps = con.prepareStatement(sql)) {

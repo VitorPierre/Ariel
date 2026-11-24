@@ -129,11 +129,22 @@ public class LocacaoDAOJdbc implements LocacaoDAO {
         return r;
     }
 
+    /**
+     * Grava orçamento, locação e pagamentos numa transação só: os pagamentos são apagados e regravados,
+     * então uma falha no meio sem transação deixaria a locação sem nenhum pagamento no banco.
+     */
     @Override public void salvar(Locacao locacao) {
         try (Connection con = ConexaoFabrica.abrir()) {
-            int idOrcamento = salvarOrcamento(con, locacao);
-            salvarLocacao(con, locacao, idOrcamento);
-            salvarPagamentos(con, locacao);
+            con.setAutoCommit(false);
+            try {
+                int idOrcamento = salvarOrcamento(con, locacao);
+                salvarLocacao(con, locacao, idOrcamento);
+                salvarPagamentos(con, locacao);
+                con.commit();
+            } catch (SQLException | RuntimeException e) {
+                desfazer(con, e);
+                throw e;
+            }
         } catch (SQLException e) {
             throw new RepositorioException("Não consegui salvar a locação " + locacao.codigo() + ".", e);
         }
@@ -280,6 +291,15 @@ public class LocacaoDAOJdbc implements LocacaoDAO {
                 ps.setString(7, p.forma().name());
                 ps.executeUpdate();
             }
+        }
+    }
+
+    /** Rollback sem esconder o erro original (uma falha no rollback vira "suppressed"). */
+    static void desfazer(Connection con, Exception original) {
+        try {
+            con.rollback();
+        } catch (SQLException r) {
+            original.addSuppressed(r);
         }
     }
 

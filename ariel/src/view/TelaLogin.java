@@ -119,27 +119,33 @@ public class TelaLogin extends JFrame {
         return barra;
     }
 
-    /** Coluna da esquerda: logo grande, nome completo e uma linha sobre o sistema, em fundo rosa claro. */
+    /** Coluna da esquerda: logo grande, nome completo e uma linha sobre o sistema, centralizados em fundo rosa claro. */
     private JComponent criarPainelMarca() {
+        JPanel externo = new JPanel(new GridBagLayout());
+        externo.setBackground(Tema.ROSA_CLARO);
+        externo.setBorder(new EmptyBorder(32, 40, 32, 40));
+
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        p.setBackground(Tema.ROSA_CLARO);
-        p.setBorder(new EmptyBorder(0, 56, 0, 40));
-        JLabel logo = new JLabel(Logo.icone(240));
+        p.setOpaque(false);
+
+        JLabel logo = new JLabel(Logo.icone(240), SwingConstants.CENTER);
         JLabel nome = TelaPrincipal.rotulo("CONTO DE FADAS · FESTAS E EVENTOS", Font.PLAIN, 13);
+        nome.setHorizontalAlignment(SwingConstants.CENTER);
         nome.setFont(Tema.fonte(Font.PLAIN, 13).deriveFont(java.util.Map.of(java.awt.font.TextAttribute.TRACKING, 0.15f)));
         nome.setForeground(Tema.TEXTO_SUAVE);
-        JLabel frase = new JLabel("<html><div style='width:320px'>Orçamentos, locações e devoluções da decoração em um só lugar.</div></html>");
+        JLabel frase = new JLabel("<html><div style='width:320px; text-align:center'>Orçamentos, locações e devoluções da decoração em um só lugar.</div></html>", SwingConstants.CENTER);
         frase.setFont(Tema.fonte(Font.PLAIN, 15));
         frase.setForeground(Tema.TEXTO_MEDIO);
-        p.add(Box.createVerticalGlue());
+
         for (JComponent c : new JComponent[]{logo, nome, frase}) {
-            c.setAlignmentX(Component.LEFT_ALIGNMENT);
+            c.setAlignmentX(Component.CENTER_ALIGNMENT);
             p.add(c);
-            p.add(Box.createVerticalStrut(c == logo ? 24 : 16));
+            if (c != frase) p.add(Box.createVerticalStrut(c == logo ? 24 : 16));
         }
-        p.add(Box.createVerticalGlue());
-        return p;
+
+        externo.add(p);
+        return externo;
     }
 
     /** Coluna da direita: formulário com no máximo 380 px de largura, rótulos acima dos campos. */

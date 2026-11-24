@@ -212,8 +212,25 @@ public class TelaPrincipal extends JFrame {
 
     /** Sair: fecha esta janela e volta para a tela de login. */
     private void sair() {
+        if (!podeDescartarAlteracoes()) return;
         dispose();
         aoSair.run();
+    }
+
+    /**
+     * Há algo digitado e não salvo em Clientes, Catálogo ou Orçamentos? Pergunta antes de perder.
+     * true = pode seguir (nada pendente ou o usuário escolheu descartar).
+     */
+    boolean podeDescartarAlteracoes() {
+        List<String> onde = new ArrayList<>();
+        if (telaClientes.temAlteracoes()) onde.add("Clientes");
+        if (telaCatalogo.temAlteracoes()) onde.add("Catálogo");
+        if (telaOrcamentos.temAlteracoes()) onde.add("Orçamentos");
+        if (onde.isEmpty()) return true;
+        return JOptionPane.showOptionDialog(this,
+                "Há alterações não salvas em: " + String.join(", ", onde) + ".\nDeseja descartá-las?",
+                "Alterações não salvas", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
+                new Object[]{"Descartar", "Continuar editando"}, "Continuar editando") == 0;
     }
 
     // ================= Navegação entre telas =================

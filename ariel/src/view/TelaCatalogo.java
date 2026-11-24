@@ -256,6 +256,14 @@ public class TelaCatalogo extends JPanel {
         final JButton salvar = Ui.botaoPreto("Salvar", 13), inativar = TelaPrincipal.botaoCinza("Inativar", 13);
         Catalogo.Item sel;
         boolean carregando;
+        String retrato = "";            // estado do formulário logo após preencher (para saber se foi alterado)
+
+        String estadoForm() {
+            return tfNome.getText() + '\u0001' + tfCor.getText() + '\u0001' + tfPreco.getText() + '\u0001' + tfTotal.getText()
+                    + '\u0001' + tfIndisp.getText() + '\u0001' + cbCategoria.getSelectedItem();
+        }
+
+        boolean alterado() { return !estadoForm().equals(retrato); }
 
         AbaProdutos() {
             super(new BorderLayout());
@@ -266,7 +274,9 @@ public class TelaCatalogo extends JPanel {
             tabela.getSelectionModel().addListSelectionListener(e -> {
                 if (e.getValueIsAdjusting() || carregando) return;
                 int i = tabela.getSelectedRow();
-                preencher(i >= 0 && i < modelo.dados.size() ? modelo.dados.get(i) : null);
+                Catalogo.Item novo = i >= 0 && i < modelo.dados.size() ? modelo.dados.get(i) : null;
+                if (novo != sel && alterado() && !descartarAlteracoes(this)) { restaurarSelecao(tabela, modelo.dados.indexOf(sel), b -> carregando = b); return; }
+                preencher(novo);
             });
             JPanel lista = Ui.caixa("PRODUTOS", rolagem(tabela));
             lista.setMinimumSize(new Dimension(300, 200));
@@ -303,10 +313,16 @@ public class TelaCatalogo extends JPanel {
 
         /** Seleciona o produto na lista e mostra o detalhe (estoque total e indisponíveis). */
         void selecionar(Catalogo.Item p) {
+            if (p != sel && alterado() && !descartarAlteracoes(this)) return;
             recarregar("");
             int i = modelo.dados.indexOf(p);
             if (i < 0) return;
-            tabela.setRowSelectionInterval(i, i);                 // o listener preenche o detalhe
+            carregando = true;                                    // já confirmado acima: o listener não pergunta de novo
+            try {
+                tabela.setRowSelectionInterval(i, i);
+            } finally {
+                carregando = false;
+            }
             tabela.scrollRectToVisible(tabela.getCellRect(i, 0, true));
             preencher(p);
         }
@@ -319,6 +335,7 @@ public class TelaCatalogo extends JPanel {
         }
 
         void novo() {
+            if (alterado() && !descartarAlteracoes(this)) return;
             carregando = true;
             tabela.clearSelection();
             carregando = false;
@@ -343,6 +360,7 @@ public class TelaCatalogo extends JPanel {
                 info.setText("Livres hoje: " + cat.disponivelHoje(p) + " · utilizáveis: " + p.estoqueUtil());
                 rotuloBotoes(p);
             }
+            retrato = estadoForm();
         }
 
         void rotuloBotoes(Catalogo.Item p) {
@@ -392,6 +410,29 @@ public class TelaCatalogo extends JPanel {
                 JOptionPane.PLAIN_MESSAGE, null, new Object[]{"Excluir", "Cancelar"}, "Cancelar") == 0;
     }
 
+    /** Há algo digitado e não salvo em alguma aba do Catálogo? */
+    boolean temAlteracoes() {
+        return produtos.alterado() || pacotes.alterado() || temas.alterado() || categorias.alterado() || servicos.alterado();
+    }
+
+    /** Mesma pergunta da ficha de Clientes, para trocar de item sem salvar. */
+    private static boolean descartarAlteracoes(Component pai) {
+        return JOptionPane.showOptionDialog(pai, "Há alterações não salvas neste cadastro.\nDeseja descartá-las?",
+                "Alterações não salvas", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
+                new Object[]{"Descartar", "Continuar editando"}, "Continuar editando") == 0;
+    }
+
+    /** Volta a seleção da tabela para a linha do item em edição, sem disparar o listener. */
+    private static void restaurarSelecao(JTable tabela, int linha, java.util.function.Consumer<Boolean> carregando) {
+        carregando.accept(true);
+        try {
+            if (linha >= 0) tabela.setRowSelectionInterval(linha, linha);
+            else tabela.clearSelection();
+        } finally {
+            carregando.accept(false);
+        }
+    }
+
     private static int inteiro(String t) {
         try { return Integer.parseInt(t.trim()); } catch (NumberFormatException e) { return -1; }
     }
@@ -421,6 +462,14 @@ public class TelaCatalogo extends JPanel {
         final JButton salvar = Ui.botaoPreto("Salvar", 13), inativar = TelaPrincipal.botaoCinza("Inativar", 13);
         Catalogo.Item sel;
         boolean carregando;
+        String retrato = "";            // estado do formulário logo após preencher (para saber se foi alterado)
+
+        String estadoForm() {
+            return tfNome.getText() + '\u0001' + tfDesc.getText() + '\u0001' + tfPreco.getText() + '\u0001'
+                    + cbTema.getSelectedItem() + '\u0001' + comp;
+        }
+
+        boolean alterado() { return !estadoForm().equals(retrato); }
 
         AbaPacotes() {
             super(new BorderLayout());
@@ -431,7 +480,9 @@ public class TelaCatalogo extends JPanel {
             tabela.getSelectionModel().addListSelectionListener(e -> {
                 if (e.getValueIsAdjusting() || carregando) return;
                 int i = tabela.getSelectedRow();
-                preencher(i >= 0 && i < modelo.dados.size() ? modelo.dados.get(i) : null);
+                Catalogo.Item novo = i >= 0 && i < modelo.dados.size() ? modelo.dados.get(i) : null;
+                if (novo != sel && alterado() && !descartarAlteracoes(this)) { restaurarSelecao(tabela, modelo.dados.indexOf(sel), b -> carregando = b); return; }
+                preencher(novo);
             });
             JLabel dica = TelaPrincipal.rotulo("<html>Pacotes usam o MESMO estoque dos produtos avulsos; cadastrar um pacote não reserva nada.</html>", Font.PLAIN, 11);
             dica.setForeground(TelaPrincipal.CINZA_TEXTO);
@@ -509,6 +560,7 @@ public class TelaCatalogo extends JPanel {
         }
 
         void novo() {
+            if (alterado() && !descartarAlteracoes(this)) return;
             carregando = true;
             tabela.clearSelection();
             carregando = false;
@@ -537,6 +589,7 @@ public class TelaCatalogo extends JPanel {
             }
             atualizarBarraBotoes(inativar);
             modeloComp.fireTableDataChanged();
+            retrato = estadoForm();
         }
 
         void adicionarComp() {
@@ -606,6 +659,11 @@ public class TelaCatalogo extends JPanel {
                 novo = TelaPrincipal.botaoSuave("+ Novo", 13);
         Object sel;
         boolean carregando;
+        String retrato = "";            // estado do formulário logo após preencher (para saber se foi alterado)
+
+        String estadoForm() { return tfNome.getText() + '\u0001' + tfDesc.getText() + '\u0001' + (temValor ? tfValor.getText() : ""); }
+
+        boolean alterado() { return !estadoForm().equals(retrato); }
 
         PainelSimples(String titulo, String rotulo, boolean temValor, boolean ladoALado, Cadastro cad) {
             super(new BorderLayout(0, 10));
@@ -633,7 +691,9 @@ public class TelaCatalogo extends JPanel {
             tabela.getSelectionModel().addListSelectionListener(e -> {
                 if (e.getValueIsAdjusting() || carregando) return;
                 int i = tabela.getSelectedRow();
-                preencher(i >= 0 && i < dados.size() ? dados.get(i) : null);
+                Object novo = i >= 0 && i < dados.size() ? dados.get(i) : null;
+                if (novo != sel && alterado() && !descartarAlteracoes(this)) { restaurarSelecao(tabela, dados.indexOf(sel), b -> carregando = b); return; }
+                preencher(novo);
             });
             novo.addActionListener(e -> novo());
             salvar.addActionListener(e -> salvar());
@@ -679,6 +739,7 @@ public class TelaCatalogo extends JPanel {
         }
 
         void novo() {
+            if (alterado() && !descartarAlteracoes(this)) return;
             carregando = true;
             tabela.clearSelection();
             carregando = false;
@@ -696,6 +757,7 @@ public class TelaCatalogo extends JPanel {
                 inativar.setText(cad.ativo(o) ? "Excluir" : "Reativar");
             }
             atualizarBarraBotoes(inativar);
+            retrato = estadoForm();
         }
 
         void salvar() {

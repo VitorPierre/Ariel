@@ -68,6 +68,8 @@ public class TelaOrcamentos extends JPanel {
     private final JButton btnRascunho = TelaPrincipal.botaoCinza("Salvar rascunho", 12);
     private double pctSinal = Regras.SINAL_PADRAO;     // 0 = valor digitado em "Outro valor"
     private boolean montando = false, retEditada = false, devEditada = false, ajustando = false;
+    private boolean noFormulario = false;      // o formulário (e não a lista) está visível
+    private String retrato = "";               // estado do formulário ao abrir (para saber se foi alterado)
 
     /** Linha do orçamento em montagem: produto/pacote (com desconto) ou serviço (com valor individual). */
     private static class Linha {
@@ -98,7 +100,10 @@ public class TelaOrcamentos extends JPanel {
         atualizar();
     }
 
-    private void mostrar(String pagina) { ((CardLayout) getLayout()).show(this, pagina); }
+    private void mostrar(String pagina) {
+        noFormulario = pagina.equals("form");
+        ((CardLayout) getLayout()).show(this, pagina);
+    }
 
     // ====================================================================================
     //  LISTA
@@ -251,7 +256,7 @@ public class TelaOrcamentos extends JPanel {
         cab.add(tituloForm, BorderLayout.WEST);
         JButton voltar = TelaPrincipal.botaoCinza("‹ Voltar à lista", 12);
         voltar.setPreferredSize(new Dimension(130, Tema.ALTURA));
-        voltar.addActionListener(e -> mostrar("lista"));
+        voltar.addActionListener(e -> { if (podeSairDoFormulario()) mostrar("lista"); });
         btnRascunho.setPreferredSize(new Dimension(140, Tema.ALTURA));
         btnRascunho.addActionListener(e -> salvarRascunho());
         JPanel bt = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
@@ -512,14 +517,48 @@ public class TelaOrcamentos extends JPanel {
     // ----------------------------------------------------------------------------------
     /** Formulário em branco (botão "+ Novo orçamento"). */
     public void novo() {
+        if (!podeSairDoFormulario()) return;          // continua no formulário que já estava aberto
         preparar(null);
+        retrato = estadoForm();
         mostrar("form");
     }
 
     /** Formulário com um orçamento em negociação ou uma reserva confirmada ainda não retirada. */
     void editar(Locacao l) {
+        if (!podeSairDoFormulario()) return;
         preparar(l);
+        retrato = estadoForm();
         mostrar("form");
+    }
+
+    // ----------------------------------------------------------------------------------
+    //  Alterações não salvas
+    // ----------------------------------------------------------------------------------
+    /** Tudo o que o usuário pode mudar no formulário, como texto (comparado com o retrato tirado ao abrir). */
+    private String estadoForm() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(cbCliente.getSelectedItem()).append('\u0001').append(cbModalidade.getSelectedItem()).append('\u0001')
+          .append(tfEvento.getText()).append('\u0001').append(tfRetirada.getText()).append('\u0001')
+          .append(tfDevolucao.getText()).append('\u0001').append(tfOutro.getText()).append('\u0001').append(pctSinal);
+        for (Linha l : linhas)
+            sb.append('\u0002').append(l.item).append('|').append(l.servico).append('|').append(l.qtd).append('|')
+              .append(l.desconto).append('|').append(l.descValor).append('|').append(l.valor);
+        return sb.toString();
+    }
+
+    /** O formulário está aberto e foi alterado depois de aberto? */
+    boolean temAlteracoes() {
+        pararEdicao();
+        return noFormulario && !estadoForm().equals(retrato);
+    }
+
+    /** Pergunta antes de descartar o que foi digitado. true = pode sair (nada mudou ou o usuário descartou). */
+    private boolean podeSairDoFormulario() {
+        if (!temAlteracoes()) return true;
+        mostrar("form");
+        return JOptionPane.showOptionDialog(this, "Há alterações não salvas neste orçamento.\nDeseja descartá-las?",
+                "Alterações não salvas", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
+                new Object[]{"Descartar", "Continuar editando"}, "Continuar editando") == 0;
     }
 
     private void preparar(Locacao l) {

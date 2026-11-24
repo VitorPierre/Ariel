@@ -33,7 +33,7 @@ nenhuma tela declara cor própria. Os scripts executam com `-cp out:src` para o 
 fontes em `src/recursos`. Na IDE (IntelliJ, Eclipse, NetBeans), marque `src` como pasta de fontes e os
 recursos são copiados sozinhos.
 
-Tela cheia: tecla **F11**, botão na barra de título ou duplo clique na barra. **Esc** sai da tela cheia (e, na janela normal, fecha o sistema).
+Tela cheia: tecla **F11**, botão na barra de título ou duplo clique na barra. **Esc** sai da tela cheia. Fechar o sistema (botão X ou Alt+F4) sempre pede confirmação.
 
 Login de teste (troque antes de usar de verdade):
 - administrador: `admin` / `admin123`

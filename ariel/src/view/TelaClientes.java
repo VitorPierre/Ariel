@@ -77,6 +77,7 @@ public class TelaClientes extends JPanel {
     private final JButton btnHistorico = TelaPrincipal.botaoCinza("Histórico", 12);
     private final Tema.Botao btnSalvar = new Tema.Botao("Salvar");
     private final JButton btnSituacao = TelaPrincipal.botaoCinza("Marcar como inadimplente", 12);   // alterna Em dia / Inadimplente (manual)
+    private final JButton btnInativar = TelaPrincipal.botaoNeutro("Inativar cliente", 12);          // alterna Ativo / Inativo
 
     // ----- pessoas autorizadas -----
     private final ModeloAutorizadas modeloAut = new ModeloAutorizadas();
@@ -262,12 +263,15 @@ public class TelaClientes extends JPanel {
 
         btnSituacao.setToolTipText("A inadimplência é decidida por você; o sistema só alerta (descreva o motivo em Observações).");
         btnSituacao.addActionListener(e -> { if (selecionado != null) alternarInadimplencia(selecionado); });
+        btnInativar.setToolTipText("Inativa o cliente (preserva o histórico; pode ser reativado no filtro Inativos).");
+        btnInativar.addActionListener(e -> { if (selecionado != null) inativarOuReativar(selecionado); });
         btnHistorico.addActionListener(e -> historico());
         btnSalvar.setPreferredSize(new Dimension(110, Tema.ALTURA));
         JPanel botoes = new JPanel(new Ui.WrapLayout(FlowLayout.RIGHT, 8, 8));
         botoes.setOpaque(false);
         botoes.setAlignmentX(Component.LEFT_ALIGNMENT);
         botoes.add(btnSituacao);
+        botoes.add(btnInativar);
         botoes.add(btnHistorico);
         botoes.add(btnSalvar);
         p.add(botoes);
@@ -410,6 +414,8 @@ public class TelaClientes extends JPanel {
         alertaBox.revalidate();
         btnSituacao.setEnabled(selecionado != null);
         btnSituacao.setText(selecionado != null && selecionado.inadimplenteManual ? "Marcar como em dia" : "Marcar como inadimplente");
+        btnInativar.setEnabled(selecionado != null);
+        btnInativar.setText(selecionado != null && !selecionado.ativo ? "Reativar cliente" : "Inativar cliente");
         Container pai = btnSituacao.getParent();
         if (pai != null) { pai.revalidate(); pai.repaint(); }
     }
@@ -556,6 +562,26 @@ public class TelaClientes extends JPanel {
                 JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
         ctrl.alternarInadimplencia(c);
         atualizar();
+    }
+
+    private void inativarOuReativar(Cliente c) {
+        if (!c.ativo) {
+            ctrl.reativar(c);
+            carregar(c);
+            atualizar();
+            aviso(c.nome + " foi reativado e volta a aparecer para novos orçamentos.");
+            return;
+        }
+        int r = JOptionPane.showOptionDialog(this,
+                "Inativar o cliente " + c.nome + " (CPF " + c.cpf + ")?\n"
+                        + "O cadastro deixará de aparecer para novos orçamentos, mas o histórico é mantido e você pode reativá-lo no filtro \"Inativos\".",
+                "Inativar cliente", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
+                new Object[]{"Inativar", "Cancelar"}, "Cancelar");
+        if (r != 0) return;
+        ctrl.desativar(c);
+        carregar(null);
+        atualizar();
+        aviso(c.nome + " foi inativado.");
     }
 
     /**

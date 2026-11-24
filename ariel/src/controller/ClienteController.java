@@ -135,6 +135,12 @@ public class ClienteController {
         return false;
     }
 
+    public void desativar(Cliente c) {
+        c.ativo = false;
+        painel.clienteDAO().salvar(c);
+        painel.notificar();
+    }
+
     public void reativar(Cliente c) {
         c.ativo = true;
         painel.clienteDAO().salvar(c);

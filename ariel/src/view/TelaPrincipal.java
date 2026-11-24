@@ -132,7 +132,11 @@ public class TelaPrincipal extends JFrame {
         this.clientesCtrl = new ClienteController(ctrl);
         this.relatorios = new RelatorioController(ctrl);
         setUndecorated(true);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        // fechar pela barra, Alt+F4 ou botão X sempre pede confirmação (os dados podem estar só em memória)
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            @Override public void windowClosing(WindowEvent e) { fecharSistema(); }
+        });
         setGlassPane(vidro);
         vidro.setVisible(false);
 
@@ -159,8 +163,8 @@ public class TelaPrincipal extends JFrame {
         setMinimumSize(new Dimension(980, 620));
         setLocationRelativeTo(null);
 
-        // ESC: em tela cheia só sai dela; na janela normal fecha a tela
-        getRootPane().registerKeyboardAction(e -> { if (telaCheia) alternarTelaCheia(); else dispose(); },
+        // ESC: só sai da tela cheia. Não fecha o sistema: Esc é apertado sem querer ao cancelar algo num campo
+        getRootPane().registerKeyboardAction(e -> { if (telaCheia) alternarTelaCheia(); },
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
                 JComponent.WHEN_IN_FOCUSED_WINDOW);
         // F11: entra/sai da tela cheia (funciona em qualquer tela do sistema)
@@ -192,6 +196,18 @@ public class TelaPrincipal extends JFrame {
     private void atualizarUsuario() {
         logado.setText("<html>" + usuario.nome() + "<br><span style='font-weight:normal'>"
                 + usuario.perfil() + "</span></html>");
+    }
+
+    /** Fechar o sistema (botão X ou Alt+F4): confirma antes, porque no modo memória os dados se perdem. */
+    private void fecharSistema() {
+        int r = JOptionPane.showOptionDialog(this,
+                "Fechar o Ariel?\nAlterações não salvas serão perdidas"
+                        + " (no modo memória, todos os dados desta sessão).",
+                "Fechar o sistema", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
+                new Object[]{"Fechar", "Cancelar"}, "Cancelar");
+        if (r != 0) return;
+        dispose();
+        System.exit(0);
     }
 
     /** Sair: fecha esta janela e volta para a tela de login. */
@@ -293,12 +309,12 @@ public class TelaPrincipal extends JFrame {
         fechar.setForeground(PRETO);
         fechar.setBorder(new EmptyBorder(2, 14, 2, 14));
         fechar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        fechar.setToolTipText("Fechar (Esc)");
+        fechar.setToolTipText("Fechar o sistema");
         fechar.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) { fechar.setBackground(Tema.ALERTA); fechar.setForeground(BRANCO); }
             public void mouseExited(MouseEvent e)  { fechar.setBackground(BORDA_CLARA); fechar.setForeground(PRETO); }
         });
-        fechar.addActionListener(e -> dispose());
+        fechar.addActionListener(e -> fecharSistema());
         // botão de minimizar (ao lado dos outros)
         JButton minimizar = new JButton(new IconeMinimizar());
         minimizar.setFocusPainted(false);

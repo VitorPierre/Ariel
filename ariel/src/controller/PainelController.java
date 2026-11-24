@@ -124,6 +124,9 @@ public class PainelController {
 
     public void addOuvinte(Runnable r) { ouvintes.add(r); }
 
+    /** Tira o ouvinte (a tela que fechou não deve continuar sendo avisada nem ficar presa na memória). */
+    public void removeOuvinte(Runnable r) { ouvintes.remove(r); }
+
     /** Avisa as telas que os dados mudaram. */
     public void notificar() {
         arquivarVencidos();

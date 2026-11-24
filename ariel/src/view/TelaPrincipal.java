@@ -109,6 +109,7 @@ public class TelaPrincipal extends JFrame {
     private TelaConfiguracoes telaConfig;
     private JLabel logado;                // "nome / perfil" no rodapé do menu
     private javax.swing.Timer relogio;
+    private final Runnable ouvinte = this::atualizarTudo;   // mesma referência no add e no remove
     private int menuSelecionado = 0;
     private String filtro = "";
     private Point arrasteJanela;
@@ -152,7 +153,7 @@ public class TelaPrincipal extends JFrame {
         raiz.add(conteudo, BorderLayout.CENTER);
 
         // sempre que o controller avisar que algo mudou, redesenhamos a tela
-        ctrl.addOuvinte(this::atualizarTudo);
+        ctrl.addOuvinte(ouvinte);
         atualizarTudo();
 
         setSize(1120, 720);
@@ -180,6 +181,7 @@ public class TelaPrincipal extends JFrame {
     @Override
     public void dispose() {
         if (relogio != null) relogio.stop();
+        ctrl.removeOuvinte(ouvinte);       // no modo memória o controller sobrevive ao Sair: solta esta janela
         super.dispose();
     }
 

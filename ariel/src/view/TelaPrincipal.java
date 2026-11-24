@@ -1020,10 +1020,15 @@ public class TelaPrincipal extends JFrame {
         }
     }
 
-    /** Lê "1.234,56", "400,5" ou "400.50". Texto inválido vira 0 (o controller recusa). */
+    /**
+     * Lê "1.234,56", "1.500", "400,5" ou "400.50". Texto inválido vira 0 (o controller recusa).
+     * Sem vírgula, ponto seguido de grupos de 3 dígitos é separador de milhar ("1.500" = 1500, "2.000.000");
+     * qualquer outro ponto é decimal ("400.50", "1.5").
+     */
     static double lerValor(String texto) {
-        String t = texto.replace("R$", "").trim().replace(" ", "");
+        String t = texto.replace("R$", "").replace(' ', ' ').trim().replace(" ", "");
         if (t.contains(",")) t = t.replace(".", "").replace(",", ".");
+        else if (t.matches("-?\\d{1,3}(\\.\\d{3})+")) t = t.replace(".", "");
         try { return Double.parseDouble(t); } catch (NumberFormatException e) { return 0; }
     }
 

@@ -317,12 +317,11 @@ public class TelaOrcamentos extends JPanel {
         JButton bServ = TelaPrincipal.botaoSuave("+ Serviço", 12);
         JButton bRem = TelaPrincipal.botaoNeutro("Remover", 12);
         // A disponibilidade é verificada sozinha (coluna "Disponib." + aviso abaixo da tabela): não há botão manual.
-        for (JButton b : new JButton[]{bProd, bPac, bServ, bRem}) b.setPreferredSize(new Dimension(b == bRem ? 100 : 108, Tema.ALTURA));
         bProd.addActionListener(e -> escolherItem(Catalogo.Tipo.PRODUTO));
         bPac.addActionListener(e -> escolherItem(Catalogo.Tipo.PACOTE));
         bServ.addActionListener(e -> escolherServico());
         bRem.addActionListener(e -> remover());
-        JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));   // uma linha só: não sobrepõe em janela estreita
+        JPanel barra = new JPanel(new Ui.WrapLayout(FlowLayout.LEFT, 8, 6));
         barra.setOpaque(false);
         barra.setBorder(new EmptyBorder(0, -8, 0, 0));
         barra.add(bProd);

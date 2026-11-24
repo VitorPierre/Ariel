@@ -48,13 +48,13 @@ public class TelaLocacoes extends JPanel {
         setBorder(new EmptyBorder(24, 28, 24, 28));
 
         // ----- cabeçalho: título, busca e filtro -----
-        JPanel cab = new JPanel(new BorderLayout());
+        JPanel cab = new JPanel(new BorderLayout(12, 6));
         cab.setOpaque(false);
         cab.setBorder(new EmptyBorder(0, 0, 14, 0));
         cab.add(TelaPrincipal.rotulo("Locações", Font.BOLD, 30), BorderLayout.WEST);
-        JPanel dir = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        JPanel dir = new JPanel(new Ui.WrapLayout(FlowLayout.RIGHT, 10, 4));
         dir.setOpaque(false);
-        busca.setPreferredSize(new Dimension(260, Tema.ALTURA));
+        busca.setPreferredSize(new Dimension(240, Tema.ALTURA));
         busca.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(javax.swing.event.DocumentEvent e) { atualizar(); }
             public void removeUpdate(javax.swing.event.DocumentEvent e) { atualizar(); }
@@ -65,7 +65,7 @@ public class TelaLocacoes extends JPanel {
         filtro.setPreferredSize(new Dimension(170, Tema.ALTURA));
         filtro.addActionListener(e -> atualizar());
         dir.add(filtro);
-        cab.add(dir, BorderLayout.EAST);
+        cab.add(dir, BorderLayout.CENTER);
         add(cab, BorderLayout.NORTH);
 
         // ----- corpo: lista (esquerda) + detalhe (direita) -----
@@ -83,17 +83,13 @@ public class TelaLocacoes extends JPanel {
         detalhe.setBorder(new EmptyBorder(0, 0, 0, 0));
         JScrollPane rolDet = Ui.rolagem(detalhe);
 
-        JPanel botoes = new JPanel(new GridLayout(4, 2, 10, 10));
+        JPanel botoes = new JPanel(new GridLayout(4, 2, 8, 8));
         botoes.setOpaque(false);
         botoes.setBorder(new EmptyBorder(12, 0, 0, 0));
-        botoes.add(btnPagar);
-        botoes.add(btnRetirar);
-        botoes.add(btnDevolver);
-        botoes.add(btnExcluir);
-        botoes.add(btnContrato);
-        botoes.add(btnRecibo);
-        botoes.add(btnServico);
-        botoes.add(btnTerceiro);
+        for (JButton b : new JButton[]{btnPagar, btnRetirar, btnDevolver, btnExcluir, btnContrato, btnRecibo, btnServico, btnTerceiro}) {
+            b.setBorder(new EmptyBorder(0, 10, 0, 10));
+            botoes.add(b);
+        }
         btnPagar.addActionListener(e -> { Locacao l = selecionada(); if (l != null) app.pagar(l); });
         btnRetirar.addActionListener(e -> { Locacao l = selecionada(); if (l != null) app.retirar(l); });
         btnDevolver.addActionListener(e -> { Locacao l = selecionada(); if (l != null) app.abrirDevolucao(l); });
@@ -108,13 +104,12 @@ public class TelaLocacoes extends JPanel {
         miolo.add(rolDet, BorderLayout.CENTER);
         miolo.add(botoes, BorderLayout.SOUTH);
         JPanel lateral = Ui.caixa("DETALHE DA LOCAÇÃO", miolo);
-        lateral.setPreferredSize(new Dimension(340, 100));
+        lateral.setPreferredSize(new Dimension(360, 100));
+        lateral.setMinimumSize(new Dimension(330, 200));
 
-        JPanel corpo = new JPanel(new BorderLayout(20, 0));
-        corpo.setOpaque(false);
-        corpo.add(Ui.secao(rolagem), BorderLayout.CENTER);
-        corpo.add(lateral, BorderLayout.EAST);
-        add(corpo, BorderLayout.CENTER);
+        JPanel listaSecao = Ui.secao(rolagem);
+        listaSecao.setMinimumSize(new Dimension(300, 200));
+        add(Ui.divisor(listaSecao, lateral, 0.58), BorderLayout.CENTER);
 
         atualizar();
     }

@@ -49,7 +49,7 @@ public class TelaCatalogo extends JPanel {
         setBackground(Tema.FUNDO);
         setBorder(new EmptyBorder(24, 28, 24, 28));
 
-        temas = new PainelSimples("TEMAS", "Tema", false, new Cadastro() {
+        temas = new PainelSimples("TEMAS", "Tema", false, false, new Cadastro() {
             public List<?> lista() { return Catalogo.TEMAS; }
             public String nome(Object o) { return ((Catalogo.Tema) o).nome; }
             public String descricao(Object o) { return ((Catalogo.Tema) o).descricao; }
@@ -57,7 +57,7 @@ public class TelaCatalogo extends JPanel {
             public double valor(Object o) { return 0; }
             public Object salvar(Object ex, String n, String d, double v) { return cat.salvarTema((Catalogo.Tema) ex, n, d); }
         });
-        categorias = new PainelSimples("CATEGORIAS", "Categoria", false, new Cadastro() {
+        categorias = new PainelSimples("CATEGORIAS", "Categoria", false, false, new Cadastro() {
             public List<?> lista() { return Catalogo.CATEGORIAS; }
             public String nome(Object o) { return ((Catalogo.Categoria) o).nome; }
             public String descricao(Object o) { return ((Catalogo.Categoria) o).descricao; }
@@ -65,7 +65,7 @@ public class TelaCatalogo extends JPanel {
             public double valor(Object o) { return 0; }
             public Object salvar(Object ex, String n, String d, double v) { return cat.salvarCategoria((Catalogo.Categoria) ex, n, d); }
         });
-        servicos = new PainelSimples("SERVIÇOS", "Serviço", true, new Cadastro() {
+        servicos = new PainelSimples("SERVIÇOS", "Serviço", true, true, new Cadastro() {
             public List<?> lista() { return Catalogo.SERVICOS; }
             public String nome(Object o) { return ((Catalogo.Servico) o).nome; }
             public String descricao(Object o) { return ((Catalogo.Servico) o).descricao; }
@@ -75,39 +75,36 @@ public class TelaCatalogo extends JPanel {
         });
 
         // ----- cabeçalho -----
-        JPanel cab = new JPanel(new BorderLayout());
+        JPanel cab = new JPanel(new BorderLayout(12, 6));
         cab.setOpaque(false);
         cab.add(TelaPrincipal.rotulo("Catálogo", Font.BOLD, 30), BorderLayout.WEST);
-        JPanel dir = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        JPanel dir = new JPanel(new Ui.WrapLayout(FlowLayout.RIGHT, 10, 4));
         dir.setOpaque(false);
-        busca.setPreferredSize(new Dimension(250, Tema.ALTURA));
+        busca.setPreferredSize(new Dimension(230, Tema.ALTURA));
         busca.getDocument().addDocumentListener(Ui.ouvinte(this::atualizar));
-        btnNovo.setPreferredSize(new Dimension(160, Tema.ALTURA));
         btnNovo.addActionListener(e -> novo());
         dir.add(busca);
         dir.add(btnNovo);
-        cab.add(dir, BorderLayout.EAST);
+        cab.add(dir, BorderLayout.CENTER);
 
         // ----- abas -----
         String[] nomes = {"Produtos", "Pacotes", "Temas e categorias", "Serviços"};
-        JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        JPanel barra = new JPanel(new Ui.WrapLayout(FlowLayout.LEFT, 8, 6));
         barra.setOpaque(false);
-        barra.setBorder(new EmptyBorder(12, 0, 12, 0));
+        barra.setBorder(new EmptyBorder(10, -8, 10, 0));
         ButtonGroup g = new ButtonGroup();
         for (int i = 0; i < nomes.length; i++) {
             final int idx = i;
             botoes[i] = Ui.botaoEscolha(nomes[i]);
-            botoes[i].setPreferredSize(new Dimension(i == 2 ? 170 : 110, Tema.ALTURA));
             botoes[i].addActionListener(e -> trocarAba(idx));
             g.add(botoes[i]);
             barra.add(botoes[i]);
         }
         botoes[0].setSelected(true);
 
-        JPanel temasCategorias = new JPanel(new GridLayout(1, 2, 14, 0));
-        temasCategorias.setOpaque(false);
-        temasCategorias.add(temas);
-        temasCategorias.add(categorias);
+        temas.setMinimumSize(new Dimension(260, 200));
+        categorias.setMinimumSize(new Dimension(260, 200));
+        JSplitPane temasCategorias = Ui.divisor(temas, categorias, 0.50);
         abas.setOpaque(false);
         abas.add(produtos, "0");
         abas.add(pacotes, "1");
@@ -136,6 +133,8 @@ public class TelaCatalogo extends JPanel {
         cartas.show(abas, String.valueOf(i));
         btnNovo.setVisible(i != 2);
         btnNovo.setText(i == 0 ? "+ Novo produto" : i == 1 ? "+ Novo pacote" : "+ Novo serviço");
+        Container pai = btnNovo.getParent();
+        if (pai != null) { pai.revalidate(); pai.repaint(); }
         busca.setText("");
         atualizar();
     }
@@ -173,10 +172,19 @@ public class TelaCatalogo extends JPanel {
         p.setOpaque(false);
         for (JComponent c : itens) {
             c.setAlignmentX(Component.LEFT_ALIGNMENT);
-            c.setMaximumSize(new Dimension(Integer.MAX_VALUE, Math.max(c.getPreferredSize().height, 20)));
+            boolean dinamico = c.getLayout() instanceof Ui.WrapLayout || c instanceof JLabel;
+            if (!dinamico) c.setMaximumSize(new Dimension(Integer.MAX_VALUE, Math.max(c.getPreferredSize().height, 20)));
             p.add(c);
-            p.add(Box.createVerticalStrut(6));
+            p.add(Box.createVerticalStrut(8));
         }
+        return p;
+    }
+
+    private static JPanel linhaDupla(JComponent a, JComponent b) {
+        JPanel p = new JPanel(new GridLayout(1, 2, 10, 0));
+        p.setOpaque(false);
+        p.add(a);
+        p.add(b);
         return p;
     }
 
@@ -194,7 +202,8 @@ public class TelaCatalogo extends JPanel {
     }
 
     private static JScrollPane rolagemSemBorda(JComponent c) {
-        JScrollPane sp = new JScrollPane(c);
+        JScrollPane sp = new JScrollPane(c, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         sp.setBorder(null);
         sp.setOpaque(false);
         sp.getViewport().setOpaque(false);
@@ -202,13 +211,22 @@ public class TelaCatalogo extends JPanel {
         return sp;
     }
 
-    private static void texto(JLabel l, String t) { l.setText("<html><div style='width:230px'>" + t.replace("\n", "<br>") + "</div></html>"); }
+    private static void texto(JLabel l, String t) { l.setText("<html>" + t.replace("\n", "<br>") + "</html>"); }
 
     private static JPanel botoesForm(JButton... bs) {
-        JPanel p = new JPanel(new GridLayout(1, bs.length, 8, 0));
+        JPanel p = new JPanel(new Ui.WrapLayout(FlowLayout.LEFT, 8, 6));
         p.setOpaque(false);
-        for (JButton b : bs) { b.setPreferredSize(new Dimension(100, Tema.ALTURA)); p.add(b); }
+        p.setBorder(new EmptyBorder(0, -8, 0, 0));
+        for (JButton b : bs) {
+            b.setPreferredSize(new Dimension(112, Tema.ALTURA));
+            p.add(b);
+        }
         return p;
+    }
+
+    private static void atualizarBarraBotoes(JButton b) {
+        Container pai = b.getParent();
+        if (pai != null) { pai.revalidate(); pai.repaint(); }
     }
 
     /** Modelo de tabela genérico: uma lista e uma função que transforma o item numa linha. */
@@ -240,7 +258,7 @@ public class TelaCatalogo extends JPanel {
         boolean carregando;
 
         AbaProdutos() {
-            super(new BorderLayout(14, 0));
+            super(new BorderLayout());
             setOpaque(false);
             TelaClientes.estilizarTabela(tabela, 12, 6);
             int[] larg = {200, 120, 80, 80, 70};
@@ -250,21 +268,21 @@ public class TelaCatalogo extends JPanel {
                 int i = tabela.getSelectedRow();
                 preencher(i >= 0 && i < modelo.dados.size() ? modelo.dados.get(i) : null);
             });
-            add(Ui.caixa("PRODUTOS", rolagem(tabela)), BorderLayout.CENTER);
+            JPanel lista = Ui.caixa("PRODUTOS", rolagem(tabela));
+            lista.setMinimumSize(new Dimension(300, 200));
 
             TelaPrincipal.estilizarCombo(cbCategoria);
             cbCategoria.setPreferredSize(new Dimension(100, Tema.ALTURA));
             salvar.addActionListener(e -> salvar());
             inativar.addActionListener(e -> alternar());
             JPanel form = coluna(Ui.bloco("Nome", tfNome), Ui.bloco("Cor / Material / Personagem", tfCor),
-                    Ui.bloco("Valor de locação (R$)", tfPreco), Ui.bloco("Categoria", cbCategoria),
-                    Ui.bloco("Quantidade total em estoque", tfTotal),
-                    Ui.bloco("Quantidade indisponível (danificada)", tfIndisp), info, botoesForm(salvar, inativar), msg);
-            JPanel lateral = new JPanel(new BorderLayout());
-            lateral.setOpaque(false);
-            lateral.setPreferredSize(new Dimension(320, 100));
-            lateral.add(Ui.caixa("DETALHE DO PRODUTO", rolagemSemBorda(form)), BorderLayout.CENTER);
-            add(lateral, BorderLayout.EAST);
+                    linhaDupla(Ui.bloco("Valor (R$)", tfPreco), Ui.bloco("Categoria", cbCategoria)),
+                    linhaDupla(Ui.bloco("Estoque total", tfTotal), Ui.bloco("Indisponíveis", tfIndisp)),
+                    info, botoesForm(salvar, inativar), msg);
+            JPanel lateral = Ui.caixa("DETALHE DO PRODUTO", rolagemSemBorda(form));
+            lateral.setPreferredSize(new Dimension(350, 100));
+            lateral.setMinimumSize(new Dimension(300, 200));
+            add(Ui.divisor(lista, lateral, 0.58), BorderLayout.CENTER);
             preencher(null);
         }
 
@@ -317,6 +335,7 @@ public class TelaCatalogo extends JPanel {
                 if (cbCategoria.getItemCount() > 0) cbCategoria.setSelectedIndex(0);
                 info.setText(" ");
                 inativar.setVisible(false);
+                atualizarBarraBotoes(inativar);
             } else {
                 tfNome.setText(p.nome); tfCor.setText(p.cor); tfPreco.setText(Ui.numero(p.preco));
                 tfTotal.setText(String.valueOf(p.estoque)); tfIndisp.setText(String.valueOf(p.indisponivel));
@@ -329,6 +348,7 @@ public class TelaCatalogo extends JPanel {
         void rotuloBotoes(Catalogo.Item p) {
             inativar.setVisible(true);
             inativar.setText(p.ativo ? "Excluir" : "Reativar");
+            atualizarBarraBotoes(inativar);
         }
 
         void salvar() {
@@ -403,7 +423,7 @@ public class TelaCatalogo extends JPanel {
         boolean carregando;
 
         AbaPacotes() {
-            super(new BorderLayout(14, 0));
+            super(new BorderLayout());
             setOpaque(false);
             TelaClientes.estilizarTabela(tabela, 12, 6);
             int[] larg = {200, 120, 80, 50, 70};
@@ -413,13 +433,14 @@ public class TelaCatalogo extends JPanel {
                 int i = tabela.getSelectedRow();
                 preencher(i >= 0 && i < modelo.dados.size() ? modelo.dados.get(i) : null);
             });
-            JLabel dica = TelaPrincipal.rotulo("Pacotes usam o MESMO estoque dos produtos avulsos; cadastrar um pacote não reserva nada.", Font.PLAIN, 11);
+            JLabel dica = TelaPrincipal.rotulo("<html>Pacotes usam o MESMO estoque dos produtos avulsos; cadastrar um pacote não reserva nada.</html>", Font.PLAIN, 11);
             dica.setForeground(TelaPrincipal.CINZA_TEXTO);
             JPanel esq = new JPanel(new BorderLayout(0, 6));
             esq.setOpaque(false);
             esq.add(rolagem(tabela), BorderLayout.CENTER);
             esq.add(dica, BorderLayout.SOUTH);
-            add(Ui.caixa("PACOTES", esq), BorderLayout.CENTER);
+            JPanel lista = Ui.caixa("PACOTES", esq);
+            lista.setMinimumSize(new Dimension(300, 200));
 
             TelaPrincipal.estilizarCombo(cbTema);
             TelaPrincipal.estilizarCombo(cbProduto);
@@ -427,8 +448,8 @@ public class TelaCatalogo extends JPanel {
             cbProduto.setPreferredSize(new Dimension(100, Tema.ALTURA));
             TelaClientes.estilizarTabela(tabelaComp, 12, 4);
             JScrollPane spc = rolagem(tabelaComp);
-            spc.setPreferredSize(new Dimension(100, 110));
-            tfQtd.setPreferredSize(new Dimension(60, Tema.ALTURA));
+            spc.setPreferredSize(new Dimension(100, 120));
+            tfQtd.setPreferredSize(new Dimension(56, Tema.ALTURA));
             JButton add = TelaPrincipal.botaoCinza("+", 14), rem = TelaPrincipal.botaoCinza("−", 14);
             add.setPreferredSize(new Dimension(44, Tema.ALTURA));
             rem.setPreferredSize(new Dimension(44, Tema.ALTURA));
@@ -450,15 +471,14 @@ public class TelaCatalogo extends JPanel {
             linhaAdd.add(dirAdd, BorderLayout.EAST);
             salvar.addActionListener(e -> salvar());
             inativar.addActionListener(e -> alternar());
-            JPanel form = coluna(Ui.bloco("Nome", tfNome), Ui.bloco("Descrição", tfDesc), Ui.bloco("Tema", cbTema),
-                    Ui.bloco("Preço do pacote (R$)", tfPreco),
+            JPanel form = coluna(Ui.bloco("Nome", tfNome), Ui.bloco("Descrição", tfDesc),
+                    linhaDupla(Ui.bloco("Tema", cbTema), Ui.bloco("Preço (R$)", tfPreco)),
                     TelaPrincipal.rotulo("Composição (produtos e quantidades)", Font.BOLD, 11), spc, linhaAdd,
                     botoesForm(salvar, inativar), msg);
-            JPanel lateral = new JPanel(new BorderLayout());
-            lateral.setOpaque(false);
-            lateral.setPreferredSize(new Dimension(360, 100));
-            lateral.add(Ui.caixa("DETALHE DO PACOTE", rolagemSemBorda(form)), BorderLayout.CENTER);
-            add(lateral, BorderLayout.EAST);
+            JPanel lateral = Ui.caixa("DETALHE DO PACOTE", rolagemSemBorda(form));
+            lateral.setPreferredSize(new Dimension(380, 100));
+            lateral.setMinimumSize(new Dimension(330, 200));
+            add(Ui.divisor(lista, lateral, 0.54), BorderLayout.CENTER);
             preencher(null);
         }
 
@@ -515,6 +535,7 @@ public class TelaCatalogo extends JPanel {
                 inativar.setVisible(true);
                 inativar.setText(p.ativo ? "Excluir" : "Reativar");
             }
+            atualizarBarraBotoes(inativar);
             modeloComp.fireTableDataChanged();
         }
 
@@ -586,7 +607,7 @@ public class TelaCatalogo extends JPanel {
         Object sel;
         boolean carregando;
 
-        PainelSimples(String titulo, String rotulo, boolean temValor, Cadastro cad) {
+        PainelSimples(String titulo, String rotulo, boolean temValor, boolean ladoALado, Cadastro cad) {
             super(new BorderLayout(0, 10));
             this.cad = cad;
             this.temValor = temValor;
@@ -614,14 +635,6 @@ public class TelaCatalogo extends JPanel {
                 int i = tabela.getSelectedRow();
                 preencher(i >= 0 && i < dados.size() ? dados.get(i) : null);
             });
-            JPanel esq = new JPanel(new BorderLayout(0, 6));
-            esq.setOpaque(false);
-            esq.add(rolagem(tabela), BorderLayout.CENTER);
-            novo.setPreferredSize(new Dimension(100, Tema.ALTURA));
-            JPanel nb = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-            nb.setOpaque(false);
-            nb.add(novo);
-            esq.add(nb, BorderLayout.SOUTH);
             novo.addActionListener(e -> novo());
             salvar.addActionListener(e -> salvar());
             inativar.addActionListener(e -> alternar());
@@ -630,14 +643,26 @@ public class TelaCatalogo extends JPanel {
             form.add(Ui.bloco(rotulo, tfNome));
             form.add(Ui.bloco("Descrição", tfDesc));
             if (temValor) form.add(Ui.bloco("Valor de referência (R$)", tfValor));
-            form.add(botoesForm(salvar, inativar));
+            form.add(ladoALado ? botoesForm(salvar, inativar) : botoesForm(novo, salvar, inativar));
             form.add(msg);
             JPanel f = coluna(form.toArray(new JComponent[0]));
-            JPanel meio = new JPanel(new BorderLayout(0, 8));
-            meio.setOpaque(false);
-            meio.add(esq, BorderLayout.CENTER);
-            meio.add(f, BorderLayout.SOUTH);
-            add(Ui.caixa(titulo, meio), BorderLayout.CENTER);
+
+            if (ladoALado) {
+                JPanel lista = Ui.caixa(titulo, rolagem(tabela));
+                lista.setMinimumSize(new Dimension(300, 200));
+                JPanel lateral = Ui.caixa("DETALHE DO " + rotulo.toUpperCase(), rolagemSemBorda(f));
+                lateral.setPreferredSize(new Dimension(350, 100));
+                lateral.setMinimumSize(new Dimension(300, 200));
+                add(Ui.divisor(lista, lateral, 0.58), BorderLayout.CENTER);
+            } else {
+                JScrollPane spTab = rolagem(tabela);
+                spTab.setMinimumSize(new Dimension(200, 120));
+                JPanel meio = new JPanel(new BorderLayout(0, 10));
+                meio.setOpaque(false);
+                meio.add(spTab, BorderLayout.CENTER);
+                meio.add(f, BorderLayout.SOUTH);
+                add(Ui.caixa(titulo, meio), BorderLayout.CENTER);
+            }
             preencher(null);
         }
 
@@ -670,6 +695,7 @@ public class TelaCatalogo extends JPanel {
                 inativar.setVisible(true);
                 inativar.setText(cad.ativo(o) ? "Excluir" : "Reativar");
             }
+            atualizarBarraBotoes(inativar);
         }
 
         void salvar() {

@@ -45,7 +45,7 @@ public class TelaClientes extends JPanel {
     private static final String[] TIPOS = ClienteController.TIPOS_AUTORIZACAO;
     static final int FONTE_TABELA = 13, RECUO_TABELA = 10;   // DESIGN.md 6.6
     private static final int ALTURA_LINHA = 36;          // linha de tabela (texto 14 px + 12 px de respiro)
-    private static final int LARGURA_LATERAL = 470;
+    private static final int LARGURA_LATERAL = 440;
 
     private final TelaPrincipal app;          // janela principal (só para navegar entre telas)
     private final ClienteController ctrl;     // CONTROLLER: validação, cadastro, inadimplência, inativação
@@ -53,7 +53,12 @@ public class TelaClientes extends JPanel {
 
     // ----- lista -----
     private final ModeloClientes modeloClientes = new ModeloClientes();
-    private final JTable tabela = new JTable(modeloClientes);
+    private final JTable tabela = new JTable(modeloClientes) {
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return getParent() != null && getPreferredSize().width < getParent().getWidth();
+        }
+    };
     private final JScrollPane rolagemLista = new JScrollPane(tabela);
     private final TelaPrincipal.Campo busca = new TelaPrincipal.Campo("Buscar por nome ou CPF", 12);
     private final JComboBox<String> filtro = new JComboBox<>(FILTROS);
@@ -106,51 +111,39 @@ public class TelaClientes extends JPanel {
 
     // ================= Cabeçalho: título, busca, filtro e "+ Novo cliente" =================
     private JComponent criarCabecalho() {
-        JPanel cab = new JPanel(new BorderLayout());
+        JPanel cab = new JPanel(new BorderLayout(12, 6));
         cab.setOpaque(false);
         cab.setBorder(new EmptyBorder(0, 0, 14, 0));
         cab.add(TelaPrincipal.rotulo("Clientes", Font.BOLD, 30), BorderLayout.WEST);
 
-        JPanel direita = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        JPanel direita = new JPanel(new Ui.WrapLayout(FlowLayout.RIGHT, 10, 4));
         direita.setOpaque(false);
 
-        busca.setPreferredSize(new Dimension(230, Tema.ALTURA));
+        busca.setPreferredSize(new Dimension(210, Tema.ALTURA));
         busca.getDocument().addDocumentListener(simples(this::recarregarLista));
         direita.add(busca);
 
         TelaPrincipal.estilizarCombo(filtro);
-        filtro.setPreferredSize(new Dimension(130, Tema.ALTURA));
+        filtro.setPreferredSize(new Dimension(135, Tema.ALTURA));
         filtro.addActionListener(e -> recarregarLista());
         direita.add(filtro);
 
         JButton novo = TelaPrincipal.botaoPrimario("+ Novo cliente", 13);
-        novo.setPreferredSize(new Dimension(140, Tema.ALTURA));
         novo.addActionListener(e -> novoCliente());
         direita.add(novo);
 
-        cab.add(direita, BorderLayout.EAST);
+        cab.add(direita, BorderLayout.CENTER);
         return cab;
     }
 
     // ================= Corpo: lista (esquerda) + ficha e autorizadas (direita) =================
     private JComponent criarCorpo() {
-        JPanel corpo = new JPanel(new GridBagLayout());
-        corpo.setOpaque(false);
-        GridBagConstraints g = new GridBagConstraints();
-        g.gridy = 0;
-        g.fill = GridBagConstraints.BOTH;
-        g.weighty = 1;
-
-        g.gridx = 0;
-        g.weightx = 1;
-        g.insets = new Insets(0, 0, 0, 12);
-        corpo.add(criarLista(), g);
-
-        g.gridx = 1;
-        g.weightx = 0;
-        g.insets = new Insets(0, 0, 0, 0);
-        corpo.add(criarLateral(), g);
-        return corpo;
+        JComponent lista = criarLista();
+        JComponent lateral = criarLateral();
+        lista.setPreferredSize(new Dimension(560, 400));
+        lista.setMinimumSize(new Dimension(340, 200));
+        lateral.setMinimumSize(new Dimension(340, 200));
+        return Ui.divisor(lista, lateral, 0.56);
     }
 
     // ---------- LISTA ----------
@@ -160,12 +153,18 @@ public class TelaClientes extends JPanel {
         lista.setBorder(new Tema.Arredondada(Tema.BORDA_SECAO, 1, Tema.RAIO_SECAO, 8, 10));
 
         estilizarTabela(tabela, 12, 6);
-        tabela.getColumnModel().getColumn(0).setPreferredWidth(124);
-        tabela.getColumnModel().getColumn(1).setPreferredWidth(132);
-        tabela.getColumnModel().getColumn(2).setPreferredWidth(130);
-        tabela.getColumnModel().getColumn(3).setPreferredWidth(109);
+        tabela.setFillsViewportHeight(true);
+        tabela.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
+        int[] minLarg = {120, 140, 125, 118};
+        int[] prefLarg = {130, 190, 135, 122};
+        for (int i = 0; i < minLarg.length; i++) {
+            TableColumn col = tabela.getColumnModel().getColumn(i);
+            col.setMinWidth(minLarg[i]);
+            col.setPreferredWidth(prefLarg[i]);
+        }
         tabela.getColumnModel().getColumn(3).setCellRenderer(new RenderSituacao());
         rolagemLista.setBorder(null);
+        rolagemLista.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         rolagemLista.getViewport().setBackground(BRANCO);
         lista.add(rolagemLista, BorderLayout.CENTER);
 
@@ -192,11 +191,7 @@ public class TelaClientes extends JPanel {
             public void actionPerformed(ActionEvent e) { if (selecionado != null && selecionado.ativo) alternarAtivo(selecionado); }   // excluir/desativar
         });
 
-        // a caixa da lista tem a altura das linhas (como no desenho) e rola se passar do espaço
-        JPanel envoltorio = new JPanel(new TopoLayout());
-        envoltorio.setOpaque(false);
-        envoltorio.add(lista);
-        return envoltorio;
+        return lista;
     }
 
     // ---------- Coluna da direita ----------
@@ -214,7 +209,7 @@ public class TelaClientes extends JPanel {
         sp.getViewport().setBackground(Tema.FUNDO);
         sp.getVerticalScrollBar().setUnitIncrement(16);
         sp.setPreferredSize(new Dimension(LARGURA_LATERAL, 100));
-        sp.setMinimumSize(new Dimension(LARGURA_LATERAL, 100));
+        sp.setMinimumSize(new Dimension(340, 100));
         return sp;
     }
 
@@ -233,7 +228,7 @@ public class TelaClientes extends JPanel {
         p.add(tituloFicha);
 
         // alerta (só aparece para cliente inadimplente)
-        JLabel texto = new JLabel("<html><div style='width:380px'><b>Cliente inadimplente:</b> nova locação exige autorização.</div></html>");
+        JLabel texto = new JLabel("<html><b>Cliente inadimplente:</b> nova locação exige autorização.</html>");
         texto.setFont(Tema.fonte(Font.PLAIN, 13));
         texto.setForeground(Tema.ERRO);
         JPanel caixa = new JPanel(new BorderLayout());
@@ -269,17 +264,12 @@ public class TelaClientes extends JPanel {
         btnSituacao.addActionListener(e -> { if (selecionado != null) alternarInadimplencia(selecionado); });
         btnHistorico.addActionListener(e -> historico());
         btnSalvar.setPreferredSize(new Dimension(110, Tema.ALTURA));
-        JPanel esquerda = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        esquerda.setOpaque(false);
-        esquerda.add(btnSituacao);
-        esquerda.add(Box.createHorizontalStrut(10));
-        esquerda.add(btnHistorico);
-        JPanel botoes = new JPanel(new BorderLayout());
+        JPanel botoes = new JPanel(new Ui.WrapLayout(FlowLayout.RIGHT, 8, 8));
         botoes.setOpaque(false);
         botoes.setAlignmentX(Component.LEFT_ALIGNMENT);
-        botoes.setMaximumSize(new Dimension(Integer.MAX_VALUE, Tema.ALTURA));
-        botoes.add(esquerda, BorderLayout.WEST);
-        botoes.add(btnSalvar, BorderLayout.EAST);
+        botoes.add(btnSituacao);
+        botoes.add(btnHistorico);
+        botoes.add(btnSalvar);
         p.add(botoes);
         return p;
     }
@@ -372,7 +362,6 @@ public class TelaClientes extends JPanel {
             visiveis.addAll(ctrl.buscar(busca.getText(), (String) filtro.getSelectedItem()));   // filtro e ordem: controller
 
             modeloClientes.fireTableDataChanged();
-            tabela.setPreferredScrollableViewportSize(new Dimension(100, Math.max(visiveis.size(), 2) * ALTURA_LINHA));
             rolagemLista.revalidate();
 
             int i = visiveis.indexOf(selecionado);
@@ -421,6 +410,8 @@ public class TelaClientes extends JPanel {
         alertaBox.revalidate();
         btnSituacao.setEnabled(selecionado != null);
         btnSituacao.setText(selecionado != null && selecionado.inadimplenteManual ? "Marcar como em dia" : "Marcar como inadimplente");
+        Container pai = btnSituacao.getParent();
+        if (pai != null) { pai.revalidate(); pai.repaint(); }
     }
 
     private void atualizarAutorizadas() {

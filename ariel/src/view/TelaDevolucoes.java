@@ -86,8 +86,9 @@ public class TelaDevolucoes extends JPanel {
         bPerda.addActionListener(e -> marcarItem(Devolucao.Situacao.PERDIDO));
         bFalta.addActionListener(e -> marcarItem(Devolucao.Situacao.NAO_DEVOLVIDO));   // devolução parcial (UC16 FA02)
         bLimpa.addActionListener(e -> marcarItem(Devolucao.Situacao.OK));
-        JPanel botOc = new JPanel(new GridLayout(1, 4, 8, 0));
+        JPanel botOc = new JPanel(new Ui.WrapLayout(FlowLayout.LEFT, 8, 6));
         botOc.setOpaque(false);
+        botOc.setBorder(new EmptyBorder(0, -8, 0, 0));
         botOc.add(bDano);
         botOc.add(bPerda);
         botOc.add(bFalta);
@@ -101,6 +102,7 @@ public class TelaDevolucoes extends JPanel {
         linhaCampos.add(blocoMulta);
         linhaCampos.add(Ui.bloco("Quem está devolvendo os itens?", tfQuem));
         JPanel form = Ui.pilha(8, dica, botOc, lblAtraso, linhaCampos);
+        botOc.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
         form.setBorder(new EmptyBorder(12, 0, 0, 0));
 
         JPanel esqMiolo = new JPanel(new BorderLayout());
@@ -108,6 +110,7 @@ public class TelaDevolucoes extends JPanel {
         esqMiolo.add(rolagem, BorderLayout.CENTER);
         esqMiolo.add(form, BorderLayout.SOUTH);
         JPanel esq = Ui.caixa("CONFERÊNCIA DOS ITENS", esqMiolo);
+        esq.setMinimumSize(new Dimension(340, 200));
 
         // ----- direita: resumo, pendências e botões -----
         resumo.setEditable(false);
@@ -128,13 +131,10 @@ public class TelaDevolucoes extends JPanel {
         latMiolo.add(rolRes, BorderLayout.CENTER);
         latMiolo.add(botoes, BorderLayout.SOUTH);
         JPanel lateral = Ui.caixa("OCORRÊNCIAS E PENDÊNCIAS", latMiolo);
-        lateral.setPreferredSize(new Dimension(360, 100));
+        lateral.setPreferredSize(new Dimension(350, 100));
+        lateral.setMinimumSize(new Dimension(300, 200));
 
-        JPanel corpo = new JPanel(new BorderLayout(20, 0));
-        corpo.setOpaque(false);
-        corpo.add(esq, BorderLayout.CENTER);
-        corpo.add(lateral, BorderLayout.EAST);
-        add(corpo, BorderLayout.CENTER);
+        add(Ui.divisor(esq, lateral, 0.60), BorderLayout.CENTER);
 
         atualizar();
     }

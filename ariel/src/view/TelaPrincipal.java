@@ -115,6 +115,11 @@ public class TelaPrincipal extends JFrame {
     private boolean telaCheia = false;          // modo tela cheia (F11)
     private Rectangle limitesAntes;             // tamanho/posição da janela antes de entrar em tela cheia
     private JButton btnTelaCheia;
+    private boolean menuRecolhido = false;      // sidebar recolhida/expandida (Ctrl+B)
+    private JPanel sidebar;
+    private JLabel marcaLogo, subLogo;
+    private JButton btnRecolher, btnSair;
+    private Tema.Painel boxHoje;
 
     public TelaPrincipal(PainelController ctrl, UsuarioController usuarios, Usuario usuario, Runnable aoSair) {
         super("Ariel · Conto de Fadas");
@@ -161,6 +166,10 @@ public class TelaPrincipal extends JFrame {
         // F11: entra/sai da tela cheia (funciona em qualquer tela do sistema)
         getRootPane().registerKeyboardAction(e -> alternarTelaCheia(),
                 KeyStroke.getKeyStroke(KeyEvent.VK_F11, 0),
+                JComponent.WHEN_IN_FOCUSED_WINDOW);
+        // Ctrl+B: recolhe ou expande o menu lateral
+        getRootPane().registerKeyboardAction(e -> alternarMenu(),
+                KeyStroke.getKeyStroke(KeyEvent.VK_B, InputEvent.CTRL_DOWN_MASK),
                 JComponent.WHEN_IN_FOCUSED_WINDOW);
 
         // Confere a data a cada 30 s: quando o dia vira, tudo é recalculado sozinho
@@ -454,53 +463,80 @@ public class TelaPrincipal extends JFrame {
 
     // ================= Sidebar =================
     private JComponent criarSidebar() {
-        JPanel side = new JPanel();
-        side.setLayout(new BoxLayout(side, BoxLayout.Y_AXIS));
-        side.setBackground(CINZA_SIDE);
-        side.setPreferredSize(new Dimension(190, 10));
-        side.setBorder(BorderFactory.createCompoundBorder(
+        sidebar = new JPanel();
+        sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
+        sidebar.setBackground(CINZA_SIDE);
+        sidebar.setPreferredSize(new Dimension(200, 10));
+        sidebar.setBorder(BorderFactory.createCompoundBorder(
                 new MatteBorder(0, 0, 0, 2, Tema.BORDA_MEDIA),
-                new EmptyBorder(16, 12, 12, 12)));
+                new EmptyBorder(12, 12, 12, 12)));
+
+        // botão recolher/expandir no topo da barra lateral
+        JPanel barraTopo = new JPanel(new BorderLayout());
+        barraTopo.setOpaque(false);
+        barraTopo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        barraTopo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        btnRecolher = new Tema.Botao("");
+        ((Tema.Botao) btnRecolher).compacto = true;
+        ((Tema.Botao) btnRecolher).raio = 8;
+        btnRecolher.setBackground(Tema.ROSA_CLARO);
+        btnRecolher.setForeground(Tema.PRIMARIA_ESCURA);
+        btnRecolher.setIcon(new IconeMenu(9));
+        btnRecolher.setPreferredSize(new Dimension(32, 32));
+        btnRecolher.setBorder(new EmptyBorder(0, 0, 0, 0));
+        btnRecolher.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnRecolher.setToolTipText("Recolher menu (Ctrl+B)");
+        btnRecolher.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { btnRecolher.setBackground(Tema.BORDA_SECAO); }
+            public void mouseExited(MouseEvent e)  { btnRecolher.setBackground(Tema.ROSA_CLARO); }
+        });
+        btnRecolher.addActionListener(e -> alternarMenu());
+        barraTopo.add(btnRecolher, BorderLayout.EAST);
+        sidebar.add(barraTopo);
+        sidebar.add(Box.createVerticalStrut(6));
 
         JPanel topo = new JPanel(new BorderLayout());          // logo + nome, centralizados na barra lateral
         topo.setOpaque(false);
         topo.setAlignmentX(Component.LEFT_ALIGNMENT);
-        topo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 170));
-        JLabel marca = new JLabel(Logo.icone(96), SwingConstants.CENTER);
-        topo.add(marca, BorderLayout.CENTER);
-        JLabel sub = new JLabel("CONTO DE FADAS", SwingConstants.CENTER);
-        sub.setFont(Tema.fonte(Font.PLAIN, 10));
-        sub.setForeground(Tema.TEXTO_SUAVE);
-        sub.setBorder(new EmptyBorder(6, 0, 0, 0));
-        topo.add(sub, BorderLayout.SOUTH);
-        side.add(topo);
-        side.add(Box.createVerticalStrut(24));
+        topo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 130));
+        marcaLogo = new JLabel(Logo.icone(84), SwingConstants.CENTER);
+        topo.add(marcaLogo, BorderLayout.CENTER);
+        subLogo = new JLabel("CONTO DE FADAS", SwingConstants.CENTER);
+        subLogo.setFont(Tema.fonte(Font.PLAIN, 10));
+        subLogo.setForeground(Tema.TEXTO_SUAVE);
+        subLogo.setBorder(new EmptyBorder(6, 0, 0, 0));
+        topo.add(subLogo, BorderLayout.SOUTH);
+        sidebar.add(topo);
+        sidebar.add(Box.createVerticalStrut(18));
 
         for (int i = 0; i < MENU.length; i++) {
             final int idx = i;
             Tema.Botao b = new Tema.Botao(MENU[i]);
             b.raio = 10;
             b.setFont(Tema.fonte(Font.PLAIN, 13));
+            b.setIcon(new IconeMenu(idx));
+            b.setIconTextGap(10);
             b.setHorizontalAlignment(SwingConstants.LEFT);
             b.setForeground(PRETO);
+            b.setToolTipText(MENU[i]);
             b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             b.setAlignmentX(Component.LEFT_ALIGNMENT);
             b.setMaximumSize(new Dimension(Integer.MAX_VALUE, Tema.ALTURA));
-            b.setPreferredSize(new Dimension(150, Tema.ALTURA));
+            b.setPreferredSize(new Dimension(160, Tema.ALTURA));
             b.addMouseListener(new MouseAdapter() {
                 public void mouseEntered(MouseEvent e) { estiloMenu(idx, true); }
                 public void mouseExited(MouseEvent e)  { estiloMenu(idx, false); }
             });
             b.addActionListener(e -> mostrarPagina(idx));
             botoesMenu[i] = b;
-            side.add(b);
-            side.add(Box.createVerticalStrut(4));
+            sidebar.add(b);
+            sidebar.add(Box.createVerticalStrut(4));
         }
         for (int k = 0; k < MENU.length; k++) estiloMenu(k, false);
-        side.add(Box.createVerticalGlue());
+        sidebar.add(Box.createVerticalGlue());
 
         // Caixa com a data de hoje (atualiza sozinha quando o dia vira)
-        Tema.Painel boxHoje = new Tema.Painel(null, Tema.ROSA_CLARO, null, Tema.RAIO_CARTAO);   // caixa "Hoje": rosa claro, sem borda
+        boxHoje = new Tema.Painel(null, Tema.ROSA_CLARO, null, Tema.RAIO_CARTAO);   // caixa "Hoje": rosa claro, sem borda
         boxHoje.setLayout(new BoxLayout(boxHoje, BoxLayout.Y_AXIS));
         boxHoje.setBorder(new EmptyBorder(9, 12, 9, 12));
         boxHoje.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -514,27 +550,70 @@ public class TelaPrincipal extends JFrame {
         boxHoje.add(tHoje);
         boxHoje.add(lblDiaSemana);
         boxHoje.add(lblDataHoje);
-        side.add(boxHoje);
+        sidebar.add(boxHoje);
 
         // quem está logado + botão Sair (volta para a tela de login)
-        side.add(Box.createVerticalStrut(8));
+        sidebar.add(Box.createVerticalStrut(8));
         logado = rotulo(" ", Font.BOLD, 11);
         atualizarUsuario();
         logado.setAlignmentX(Component.LEFT_ALIGNMENT);
         logado.setBorder(new EmptyBorder(0, 2, 6, 0));
-        side.add(logado);
-        JButton btnSair = botaoCinza("Sair", 12);
+        sidebar.add(logado);
+        btnSair = botaoCinza("Sair", 12);
+        btnSair.setIcon(new IconeMenu(8));
+        btnSair.setIconTextGap(8);
+        btnSair.setToolTipText("Sair do sistema");
         btnSair.setAlignmentX(Component.LEFT_ALIGNMENT);
         btnSair.setMaximumSize(new Dimension(Integer.MAX_VALUE, Tema.ALTURA));
-        btnSair.setPreferredSize(new Dimension(150, Tema.ALTURA));
+        btnSair.setPreferredSize(new Dimension(160, Tema.ALTURA));
         btnSair.addActionListener(e -> sair());
-        side.add(btnSair);
-        return side;
+        sidebar.add(btnSair);
+        return sidebar;
+    }
+
+    /** Recolhe ou expande a coluna do menu lateral para dar mais espaço às telas. */
+    private void alternarMenu() {
+        menuRecolhido = !menuRecolhido;
+        int larg = menuRecolhido ? 70 : 200;
+        sidebar.setPreferredSize(new Dimension(larg, 10));
+        sidebar.setBorder(BorderFactory.createCompoundBorder(
+                new MatteBorder(0, 0, 0, 2, Tema.BORDA_MEDIA),
+                new EmptyBorder(12, menuRecolhido ? 10 : 12, 12, menuRecolhido ? 10 : 12)));
+
+        btnRecolher.setIcon(new IconeMenu(menuRecolhido ? 10 : 9));
+        btnRecolher.setToolTipText(menuRecolhido ? "Expandir menu (Ctrl+B)" : "Recolher menu (Ctrl+B)");
+        Container barraTopo = btnRecolher.getParent();
+        barraTopo.remove(btnRecolher);
+        barraTopo.add(btnRecolher, menuRecolhido ? BorderLayout.CENTER : BorderLayout.EAST);
+
+        marcaLogo.setIcon(Logo.icone(menuRecolhido ? 36 : 84));
+        subLogo.setVisible(!menuRecolhido);
+
+        for (int i = 0; i < MENU.length; i++) {
+            JButton b = botoesMenu[i];
+            b.setText(menuRecolhido ? "" : MENU[i]);
+            b.setHorizontalAlignment(menuRecolhido ? SwingConstants.CENTER : SwingConstants.LEFT);
+            b.setPreferredSize(new Dimension(menuRecolhido ? 44 : 160, Tema.ALTURA));
+            estiloMenu(i, false);
+        }
+
+        boxHoje.setVisible(!menuRecolhido);
+        logado.setVisible(!menuRecolhido);
+        btnSair.setText(menuRecolhido ? "" : "Sair");
+        btnSair.setHorizontalAlignment(SwingConstants.CENTER);
+        btnSair.setBorder(new EmptyBorder(0, menuRecolhido ? 0 : 14, 0, menuRecolhido ? 0 : 14));
+        btnSair.setPreferredSize(new Dimension(menuRecolhido ? 44 : 160, Tema.ALTURA));
+        btnSair.setToolTipText(menuRecolhido ? "Sair (" + usuario.nome() + ")" : "Sair do sistema");
+
+        sidebar.revalidate();
+        sidebar.repaint();
+        getContentPane().revalidate();
+        getContentPane().repaint();
     }
 
     private void estiloMenu(int i, boolean hover) {
         JButton b = botoesMenu[i];
-        b.setBorder(new EmptyBorder(0, 14, 0, 10));
+        b.setBorder(menuRecolhido ? new EmptyBorder(0, 0, 0, 0) : new EmptyBorder(0, 12, 0, 10));
         if (i == menuSelecionado) {
             b.setBackground(Tema.PRIMARIA);
             b.setForeground(Color.WHITE);
@@ -550,6 +629,91 @@ public class TelaPrincipal extends JFrame {
         }
     }
 
+    /** Ícones vetoriais minimalistas do menu lateral (herdam a cor do botão). */
+    private static class IconeMenu implements Icon {
+        private final int tipo;
+        IconeMenu(int tipo) { this.tipo = tipo; }
+        @Override public int getIconWidth()  { return 16; }
+        @Override public int getIconHeight() { return 16; }
+
+        @Override
+        public void paintIcon(Component c, Graphics g0, int x, int y) {
+            Graphics2D g = (Graphics2D) g0.create();
+            Tema.suave(g);
+            g.setColor(c.getForeground());
+            g.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            switch (tipo) {
+                case 0: // Painel (grade 2x2)
+                    g.drawRoundRect(x + 1, y + 1, 5, 5, 2, 2);
+                    g.drawRoundRect(x + 9, y + 1, 5, 5, 2, 2);
+                    g.drawRoundRect(x + 1, y + 9, 5, 5, 2, 2);
+                    g.drawRoundRect(x + 9, y + 9, 5, 5, 2, 2);
+                    break;
+                case 1: // Clientes (pessoa)
+                    g.drawOval(x + 5, y + 2, 6, 6);
+                    g.drawArc(x + 2, y + 10, 12, 8, 0, 180);
+                    break;
+                case 2: // Catálogo (caixa)
+                    g.drawRoundRect(x + 2, y + 4, 12, 10, 2, 2);
+                    g.drawLine(x + 2, y + 7, x + 14, y + 7);
+                    g.drawLine(x + 6, y + 10, x + 10, y + 10);
+                    break;
+                case 3: // Orçamentos (documento)
+                    g.drawRoundRect(x + 3, y + 1, 10, 14, 2, 2);
+                    g.drawLine(x + 5, y + 5, x + 11, y + 5);
+                    g.drawLine(x + 5, y + 8, x + 11, y + 8);
+                    g.drawLine(x + 5, y + 11, x + 9, y + 11);
+                    break;
+                case 4: // Locações (calendário)
+                    g.drawRoundRect(x + 2, y + 3, 12, 11, 2, 2);
+                    g.drawLine(x + 2, y + 7, x + 14, y + 7);
+                    g.drawLine(x + 5, y + 1, x + 5, y + 4);
+                    g.drawLine(x + 11, y + 1, x + 11, y + 4);
+                    break;
+                case 5: // Devoluções (seta retorno)
+                    g.drawArc(x + 3, y + 4, 10, 9, -60, 240);
+                    g.drawLine(x + 3, y + 3, x + 3, y + 7);
+                    g.drawLine(x + 3, y + 7, x + 7, y + 7);
+                    break;
+                case 6: // Relatórios (gráfico de barras)
+                    g.drawLine(x + 2, y + 14, x + 14, y + 14);
+                    g.drawLine(x + 4, y + 14, x + 4, y + 9);
+                    g.drawLine(x + 8, y + 14, x + 8, y + 4);
+                    g.drawLine(x + 12, y + 14, x + 12, y + 7);
+                    break;
+                case 7: // Configurações (controles deslizantes)
+                    g.drawLine(x + 2, y + 4, x + 14, y + 4);
+                    g.drawLine(x + 2, y + 8, x + 14, y + 8);
+                    g.drawLine(x + 2, y + 12, x + 14, y + 12);
+                    g.fillOval(x + 4, y + 2, 4, 4);
+                    g.fillOval(x + 9, y + 6, 4, 4);
+                    g.fillOval(x + 5, y + 10, 4, 4);
+                    break;
+                case 8: // Sair (porta + seta)
+                    g.drawLine(x + 7, y + 2, x + 3, y + 2);
+                    g.drawLine(x + 3, y + 2, x + 3, y + 14);
+                    g.drawLine(x + 3, y + 14, x + 7, y + 14);
+                    g.drawLine(x + 7, y + 8, x + 14, y + 8);
+                    g.drawLine(x + 11, y + 5, x + 14, y + 8);
+                    g.drawLine(x + 11, y + 11, x + 14, y + 8);
+                    break;
+                case 9: // Recolher («)
+                    g.drawLine(x + 7, y + 4, x + 3, y + 8);
+                    g.drawLine(x + 3, y + 8, x + 7, y + 12);
+                    g.drawLine(x + 12, y + 4, x + 8, y + 8);
+                    g.drawLine(x + 8, y + 8, x + 12, y + 12);
+                    break;
+                default: // Expandir (»)
+                    g.drawLine(x + 4, y + 4, x + 8, y + 8);
+                    g.drawLine(x + 8, y + 8, x + 4, y + 12);
+                    g.drawLine(x + 9, y + 4, x + 13, y + 8);
+                    g.drawLine(x + 13, y + 8, x + 9, y + 12);
+                    break;
+            }
+            g.dispose();
+        }
+    }
+
     // ================= Painel principal =================
     private JComponent criarAreaPrincipal() {
         JPanel area = new JPanel(new BorderLayout());
@@ -561,15 +725,15 @@ public class TelaPrincipal extends JFrame {
         topo.setOpaque(false);
 
         // título + busca + botão
-        JPanel cab = new JPanel(new BorderLayout());
+        JPanel cab = new JPanel(new BorderLayout(12, 6));
         cab.setOpaque(false);
         tituloPagina.setFont(Tema.titulo(Font.BOLD, 30));
         cab.add(tituloPagina, BorderLayout.WEST);
 
-        JPanel direita = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        JPanel direita = new JPanel(new Ui.WrapLayout(FlowLayout.RIGHT, 10, 4));
         direita.setOpaque(false);
         Campo busca = new Campo("Buscar cliente, item ou reserva", 12);
-        busca.setPreferredSize(new Dimension(230, Tema.ALTURA));
+        busca.setPreferredSize(new Dimension(220, Tema.ALTURA));
         busca.getDocument().addDocumentListener(new DocumentListener() {
             void mudou() { filtro = busca.getText().trim().toLowerCase(); for (Coluna c : colunas) c.atualizar(); }
             public void insertUpdate(DocumentEvent e) { mudou(); }
@@ -579,10 +743,9 @@ public class TelaPrincipal extends JFrame {
         direita.add(busca);
 
         JButton novo = botaoPrimario("+ Novo orçamento", 13);
-        novo.setPreferredSize(new Dimension(160, Tema.ALTURA));
         novo.addActionListener(e -> novoOrcamento());
         direita.add(novo);
-        cab.add(direita, BorderLayout.EAST);
+        cab.add(direita, BorderLayout.CENTER);
         topo.add(cab);
         topo.add(Box.createVerticalStrut(14));
 

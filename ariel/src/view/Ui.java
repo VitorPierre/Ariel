@@ -152,7 +152,7 @@ final class Ui {
         b.setFocusPainted(false);
         b.setContentAreaFilled(false);
         b.setOpaque(false);
-        b.setBorder(new EmptyBorder(0, 12, 0, 12));
+        b.setBorder(new EmptyBorder(0, 16, 0, 16));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         Runnable estilo = () -> {
             b.setBackground(b.isSelected() ? Tema.PRIMARIA : Tema.BOTAO);
@@ -160,6 +160,92 @@ final class Ui {
         };
         b.addChangeListener(e -> estilo.run());
         estilo.run();
+        Dimension pref = b.getPreferredSize();
+        b.setPreferredSize(new Dimension(Math.max(pref.width, 96), Tema.ALTURA));
         return b;
+    }
+
+    /** Divisor responsivo entre lista e detalhe, estilizado no tema rosa e branco. */
+    static JSplitPane divisor(JComponent esquerda, JComponent direita, double pesoEsquerda) {
+        JSplitPane sp = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, esquerda, direita);
+        sp.setResizeWeight(pesoEsquerda);
+        sp.setContinuousLayout(true);
+        sp.setBorder(null);
+        sp.setOpaque(false);
+        sp.setDividerSize(12);
+        sp.setUI(new javax.swing.plaf.basic.BasicSplitPaneUI() {
+            @Override
+            public javax.swing.plaf.basic.BasicSplitPaneDivider createDefaultDivider() {
+                return new javax.swing.plaf.basic.BasicSplitPaneDivider(this) {
+                    @Override
+                    public void paint(Graphics g0) {
+                        Graphics2D g = (Graphics2D) g0.create();
+                        Tema.suave(g);
+                        g.setColor(Tema.FUNDO);
+                        g.fillRect(0, 0, getWidth(), getHeight());
+                        int h = Math.min(36, Math.max(16, getHeight() / 8));
+                        int w = 4;
+                        int x = (getWidth() - w) / 2;
+                        int y = (getHeight() - h) / 2;
+                        g.setColor(Tema.BORDA_CAMPO);
+                        g.fillRoundRect(x, y, w, h, w, w);
+                        g.dispose();
+                    }
+                };
+            }
+        });
+        return sp;
+    }
+
+    /** FlowLayout que quebra automaticamente para a linha de baixo quando o container estreita. */
+    static class WrapLayout extends FlowLayout {
+        WrapLayout(int align, int hgap, int vgap) { super(align, hgap, vgap); }
+
+        @Override public Dimension preferredLayoutSize(Container target) { return layoutSize(target, true); }
+        @Override public Dimension minimumLayoutSize(Container target) {
+            Dimension min = layoutSize(target, false);
+            min.width -= (getHgap() + 1);
+            return min;
+        }
+
+        private Dimension layoutSize(Container target, boolean preferred) {
+            synchronized (target.getTreeLock()) {
+                int targetWidth = target.getSize().width;
+                Container container = target;
+                while (targetWidth == 0 && container.getParent() != null) {
+                    container = container.getParent();
+                    targetWidth = container.getSize().width;
+                }
+                if (targetWidth == 0) targetWidth = Integer.MAX_VALUE;
+
+                int hgap = getHgap(), vgap = getVgap();
+                Insets insets = target.getInsets();
+                int maxWidth = targetWidth - (insets.left + insets.right + hgap * 2);
+                Dimension dim = new Dimension(0, 0);
+                int rowWidth = 0, rowHeight = 0;
+
+                for (int i = 0; i < target.getComponentCount(); i++) {
+                    Component m = target.getComponent(i);
+                    if (!m.isVisible()) continue;
+                    Dimension d = preferred ? m.getPreferredSize() : m.getMinimumSize();
+                    if (rowWidth + d.width > maxWidth && rowWidth > 0) {
+                        dim.width = Math.max(dim.width, rowWidth);
+                        if (dim.height > 0) dim.height += vgap;
+                        dim.height += rowHeight;
+                        rowWidth = 0;
+                        rowHeight = 0;
+                    }
+                    if (rowWidth > 0) rowWidth += hgap;
+                    rowWidth += d.width;
+                    rowHeight = Math.max(rowHeight, d.height);
+                }
+                dim.width = Math.max(dim.width, rowWidth);
+                if (dim.height > 0) dim.height += vgap;
+                dim.height += rowHeight;
+                dim.width += insets.left + insets.right + hgap * 2;
+                dim.height += insets.top + insets.bottom + vgap * 2;
+                return dim;
+            }
+        }
     }
 }

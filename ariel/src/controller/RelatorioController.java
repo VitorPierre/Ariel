@@ -35,6 +35,7 @@ public class RelatorioController {
 
     /** Resultado pronto para a tela e para exportar. */
     public static class Relatorio {
+        public Tipo tipo;
         public String titulo, periodo, criterio = "";
         public String[] colunas = {};
         public final List<String[]> linhas = new ArrayList<>();
@@ -53,6 +54,7 @@ public class RelatorioController {
         if (quem == null || !quem.ehAdmin()) throw new RegraNegocioException("Acesso restrito: só o administrador emite relatórios.");
         if (de == null || ate == null || ate.isBefore(de)) throw new RegraNegocioException(Mensagens.MSG011 + "\n(período inválido)");
         Relatorio r = new Relatorio();
+        r.tipo = tipo;
         r.titulo = tipo.nome;
         r.periodo = DATA.format(de) + " a " + DATA.format(ate);
         switch (tipo) {

@@ -6,6 +6,8 @@ import controller.RelatorioController.Tipo;
 import model.Catalogo;
 import model.RegraNegocioException;
 import model.Usuario;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -52,6 +54,8 @@ public class TelaRelatorios extends JPanel {
         public Object getValueAt(int r, int c) { String[] l = linhas.get(r); return c < l.length ? l[c] : ""; }
     };
     private final JTable tabela = new JTable(modelo);
+    private final JPanel painelGrafico = new JPanel(new BorderLayout());
+    private final JTabbedPane abasResultado = new JTabbedPane();
 
     public TelaRelatorios(TelaPrincipal app, RelatorioController ctrl, Usuario usuario) {
         super(new BorderLayout());
@@ -84,20 +88,18 @@ public class TelaRelatorios extends JPanel {
         cbTipo.addActionListener(e -> ajustarFiltro());
 
         JButton gerar = Ui.botaoPreto("Gerar", 13);
-        gerar.setPreferredSize(new Dimension(100, Tema.ALTURA));
+        gerar.setPreferredSize(new Dimension(104, Tema.ALTURA));
         gerar.addActionListener(e -> gerar());
-        btnCsv.setPreferredSize(new Dimension(130, Tema.ALTURA));
-        btnPdf.setPreferredSize(new Dimension(130, Tema.ALTURA));
         btnCsv.addActionListener(e -> exportar(true));
         btnPdf.addActionListener(e -> exportar(false));
         btnCsv.setEnabled(false);
         btnPdf.setEnabled(false);
 
-        JPanel filtros = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        JPanel filtros = new JPanel(new Ui.WrapLayout(FlowLayout.LEFT, 12, 8));
         filtros.setOpaque(false);
         filtros.setBorder(new EmptyBorder(0, -12, 0, 0));
         JPanel pt = Ui.bloco("Relatório", cbTipo), pd = Ui.bloco("De", tfDe), pa = Ui.bloco("Até", tfAte);
-        pt.setPreferredSize(new Dimension(300, 66));
+        pt.setPreferredSize(new Dimension(280, 66));
         pd.setPreferredSize(new Dimension(118, 66));
         pa.setPreferredSize(new Dimension(118, 66));
         filtros.add(pt);
@@ -107,14 +109,24 @@ public class TelaRelatorios extends JPanel {
         pf.setPreferredSize(new Dimension(160, 66));
         filtros.add(pf);
         // os botões ficam na linha dos campos (um rótulo vazio em cima alinha as alturas)
-        for (JButton b : new JButton[]{(JButton) gerar, btnCsv, btnPdf}) {
+        for (JButton b : new JButton[]{gerar, btnCsv, btnPdf}) {
             JPanel pb = Ui.bloco(" ", b);
-            pb.setPreferredSize(new Dimension(b == gerar ? 100 : 130, 66));
+            int w = Math.max(b.getPreferredSize().width, b == gerar ? 104 : 136);
+            pb.setPreferredSize(new Dimension(w, 66));
             filtros.add(pb);
         }
 
         TelaClientes.estilizarTabela(tabela, 12, 6);
         JScrollPane sp = Ui.rolagem(tabela);
+
+        painelGrafico.setBackground(Tema.SUPERFICIE);
+        mostrarAvisoGrafico("Gere um relatório para visualizar o gráfico.");
+
+        abasResultado.setFont(Tema.fonte(Font.BOLD, 12));
+        abasResultado.setBackground(Tema.SUPERFICIE);
+        abasResultado.setForeground(Tema.TEXTO);
+        abasResultado.addTab("Tabela", sp);
+        abasResultado.addTab("Gráfico", painelGrafico);
 
         lblCriterio.setForeground(TelaPrincipal.CINZA_TEXTO);
         JPanel cima = new JPanel(new GridLayout(2, 1, 0, 2));
@@ -128,7 +140,7 @@ public class TelaRelatorios extends JPanel {
         JPanel resultado = new JPanel(new BorderLayout(0, 8));
         resultado.setOpaque(false);
         resultado.add(cima, BorderLayout.NORTH);
-        resultado.add(sp, BorderLayout.CENTER);
+        resultado.add(abasResultado, BorderLayout.CENTER);
         resultado.add(rodape, BorderLayout.SOUTH);
 
         JPanel centro = new JPanel(new BorderLayout(0, 12));
@@ -178,12 +190,38 @@ public class TelaRelatorios extends JPanel {
             lblCriterio.setText(atual.criterio == null || atual.criterio.isEmpty() ? " " : atual.criterio);
             lblTotais.setText(atual.totais.isEmpty() ? " " : String.join("   |   ", atual.totais));
             boolean tem = !atual.linhas.isEmpty();
+            atualizarGrafico(atual);
             btnCsv.setEnabled(true);
             btnPdf.setEnabled(true);
             msg.setText(tem ? " " : model.Mensagens.MSG007);
         } catch (RegraNegocioException e) {
             msg.setText("<html>" + e.getMessage().replace("\n", "<br>") + "</html>");
         }
+    }
+
+    private void atualizarGrafico(Relatorio r) {
+        JFreeChart chart = GraficosRelatorio.criar(r);
+        if (chart == null) {
+            mostrarAvisoGrafico("Sem dados no período para exibir gráfico.");
+            return;
+        }
+        ChartPanel cp = new ChartPanel(chart);
+        cp.setBackground(Tema.SUPERFICIE);
+        cp.setMouseWheelEnabled(true);
+        painelGrafico.removeAll();
+        painelGrafico.add(cp, BorderLayout.CENTER);
+        painelGrafico.revalidate();
+        painelGrafico.repaint();
+    }
+
+    private void mostrarAvisoGrafico(String texto) {
+        JLabel aviso = TelaPrincipal.rotulo(texto, Font.PLAIN, 13);
+        aviso.setForeground(Tema.TEXTO_SUAVE);
+        aviso.setHorizontalAlignment(SwingConstants.CENTER);
+        painelGrafico.removeAll();
+        painelGrafico.add(aviso, BorderLayout.CENTER);
+        painelGrafico.revalidate();
+        painelGrafico.repaint();
     }
 
     private void exportar(boolean csv) {

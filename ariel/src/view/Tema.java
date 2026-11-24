@@ -245,8 +245,11 @@ final class Tema {
         @Override
         public Dimension getPreferredSize() {
             Dimension d = super.getPreferredSize();
-            if (isPreferredSizeSet()) return d;
-            return new Dimension(d.width, Math.max(d.height, compacto ? 28 : ALTURA));
+            int minH = compacto ? 28 : ALTURA;
+            Dimension nat = getUI() != null ? getUI().getPreferredSize(this) : d;
+            int w = nat != null ? Math.max(d.width, nat.width) : d.width;
+            int h = Math.max(d.height, minH);
+            return new Dimension(w, h);
         }
 
         Botao(String texto) {

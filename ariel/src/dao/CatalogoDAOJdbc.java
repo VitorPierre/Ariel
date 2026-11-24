@@ -330,32 +330,46 @@ public class CatalogoDAOJdbc implements CatalogoDAO {
         } catch (SQLException e) { throw new RepositorioException("Não consegui salvar o produto \"" + item.nome + "\".", e); }
     }
 
+    /** Pacote, tema e composição numa transação só (a composição é apagada e regravada). */
     private void salvarPacote(Catalogo.Item item) {
+        Integer idAntes = item.idPacote;
         try (Connection con = ConexaoFabrica.abrir()) {
-            if (item.idPacote == null) {
-                String sql = "INSERT INTO Pacote (nome, `descrição`, `preço`, disponivel) VALUES (?, ?, ?, ?)";
-                try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                    ps.setString(1, item.nome);
-                    ps.setString(2, item.descricao);
-                    ps.setDouble(3, item.preco);
-                    ps.setBoolean(4, item.ativo);
-                    ps.executeUpdate();
-                    try (ResultSet g = ps.getGeneratedKeys()) { if (g.next()) item.idPacote = g.getInt(1); }
-                }
-            } else {
-                String sql = "UPDATE Pacote SET nome=?, `descrição`=?, `preço`=?, disponivel=? WHERE idPacote=?";
-                try (PreparedStatement ps = con.prepareStatement(sql)) {
-                    ps.setString(1, item.nome);
-                    ps.setString(2, item.descricao);
-                    ps.setDouble(3, item.preco);
-                    ps.setBoolean(4, item.ativo);
-                    ps.setInt(5, item.idPacote);
-                    ps.executeUpdate();
-                }
+            con.setAutoCommit(false);
+            try {
+                gravarPacote(con, item);
+                con.commit();
+            } catch (SQLException | RuntimeException e) {
+                LocacaoDAOJdbc.desfazer(con, e);
+                item.idPacote = idAntes;          // o INSERT foi desfeito: o id gerado não vale mais
+                throw e;
             }
-            salvarTemaDoPacote(con, item);
-            salvarComponentes(con, item);
         } catch (SQLException e) { throw new RepositorioException("Não consegui salvar o pacote \"" + item.nome + "\".", e); }
+    }
+
+    private void gravarPacote(Connection con, Catalogo.Item item) throws SQLException {
+        if (item.idPacote == null) {
+            String sql = "INSERT INTO Pacote (nome, `descrição`, `preço`, disponivel) VALUES (?, ?, ?, ?)";
+            try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setString(1, item.nome);
+                ps.setString(2, item.descricao);
+                ps.setDouble(3, item.preco);
+                ps.setBoolean(4, item.ativo);
+                ps.executeUpdate();
+                try (ResultSet g = ps.getGeneratedKeys()) { if (g.next()) item.idPacote = g.getInt(1); }
+            }
+        } else {
+            String sql = "UPDATE Pacote SET nome=?, `descrição`=?, `preço`=?, disponivel=? WHERE idPacote=?";
+            try (PreparedStatement ps = con.prepareStatement(sql)) {
+                ps.setString(1, item.nome);
+                ps.setString(2, item.descricao);
+                ps.setDouble(3, item.preco);
+                ps.setBoolean(4, item.ativo);
+                ps.setInt(5, item.idPacote);
+                ps.executeUpdate();
+            }
+        }
+        salvarTemaDoPacote(con, item);
+        salvarComponentes(con, item);
     }
 
     private void salvarTemaDoPacote(Connection con, Catalogo.Item pacote) throws SQLException {

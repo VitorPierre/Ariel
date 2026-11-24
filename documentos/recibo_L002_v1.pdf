@@ -1,0 +1,49 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R ] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 700 >>
+stream
+BT /F2 16.0 Tf 56.0 764.4 Td (RECIBO DE PAGAMENTO · Locação #002 · versão 1) Tj ET
+BT /F1 10.0 Tf 56.0 737.4 Td (Conto de Fadas Festas e Eventos recebeu de Zefinha \(CPF 048.609.432-44\) os valores abaixo.) Tj ET
+BT /F1 10.0 Tf 56.0 723.9 Td (Emitido em 24/11/2026.) Tj ET
+BT /F2 11.0 Tf 56.0 695.55 Td (PAGAMENTOS) Tj ET
+BT /F3 9.0 Tf 56.0 683.4 Td (24/11/2026  Entrada              Pix                    R$ 80,00) Tj ET
+BT /F2 11.0 Tf 56.0 655.05 Td (RESUMO) Tj ET
+BT /F3 9.0 Tf 56.0 642.9 Td (Total da locação ..........    R$ 400,00) Tj ET
+BT /F3 9.0 Tf 56.0 630.75 Td (Total recebido ............     R$ 80,00) Tj ET
+BT /F3 9.0 Tf 56.0 618.6 Td (Saldo em aberto ...........    R$ 320,00) Tj ET
+
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000116 00000 n 
+0000000213 00000 n 
+0000000315 00000 n 
+0000000410 00000 n 
+0000000560 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+1311
+%%EOF

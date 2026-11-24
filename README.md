@@ -29,7 +29,8 @@ Projeto acadêmico de **Engenharia de Software II (UniRios)**, desenvolvido em *
 ## Tecnologias
 
 - Java 17 ou superior (testado no Java 21)
-- Java Swing (somente a biblioteca padrão, sem dependências externas)
+- Java Swing
+- Bibliotecas na pasta `lib/` (já incluídas): JFreeChart (gráficos dos relatórios) e mysql-connector-j (modo MySQL)
 - Fontes Inter e Outfit, ambas sob licença SIL OFL
 
 ## Como executar

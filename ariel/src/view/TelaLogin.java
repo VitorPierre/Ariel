@@ -179,8 +179,8 @@ public class TelaLogin extends JFrame {
     private void entrar() {
         try {
             Usuario u = ctrl.entrar(tfUsuario.getText(), pfSenha.getPassword());
-            dispose();           // fecha o login
-            aoEntrar.accept(u);  // abre o sistema
+            aoEntrar.accept(u);  // abre o sistema (se falhar, o login continua aberto com a mensagem)
+            dispose();           // só então fecha o login
         } catch (RegraNegocioException e) {
             lblErro.setText(e.getMessage());
             pfSenha.setText("");

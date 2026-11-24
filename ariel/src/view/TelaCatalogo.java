@@ -289,14 +289,18 @@ public class TelaCatalogo extends JPanel {
         void recarregar(String q) {
             Catalogo.Item antes = sel;
             carregando = true;
-            modelo.dados.clear();
-            for (Catalogo.Item p : Catalogo.produtos())
-                if (q.isEmpty() || (p.nome + " " + p.cor + " " + (p.categoria == null ? "" : p.categoria.nome)).toLowerCase().contains(q))
-                    modelo.dados.add(p);
-            modelo.fireTableDataChanged();
-            int i = modelo.dados.indexOf(antes);
-            if (i >= 0) tabela.setRowSelectionInterval(i, i);
-            carregando = false;
+            int i;
+            try {
+                modelo.dados.clear();
+                for (Catalogo.Item p : Catalogo.produtos())
+                    if (q.isEmpty() || (p.nome + " " + p.cor + " " + (p.categoria == null ? "" : p.categoria.nome)).toLowerCase().contains(q))
+                        modelo.dados.add(p);
+                modelo.fireTableDataChanged();
+                i = modelo.dados.indexOf(antes);
+                if (i >= 0) tabela.setRowSelectionInterval(i, i);
+            } finally {
+                carregando = false;
+            }
             if (antes != null && i >= 0) rotuloBotoes(antes);
             categoriasAtivas();
         }
@@ -485,14 +489,17 @@ public class TelaCatalogo extends JPanel {
         void recarregar(String q) {
             Catalogo.Item antes = sel;
             carregando = true;
-            modelo.dados.clear();
-            for (Catalogo.Item p : Catalogo.pacotes())
-                if (q.isEmpty() || (p.nome + " " + p.composicao() + " " + (p.tema == null ? "" : p.tema.nome)).toLowerCase().contains(q))
-                    modelo.dados.add(p);
-            modelo.fireTableDataChanged();
-            int i = modelo.dados.indexOf(antes);
-            if (i >= 0) tabela.setRowSelectionInterval(i, i);
-            carregando = false;
+            try {
+                modelo.dados.clear();
+                for (Catalogo.Item p : Catalogo.pacotes())
+                    if (q.isEmpty() || (p.nome + " " + p.composicao() + " " + (p.tema == null ? "" : p.tema.nome)).toLowerCase().contains(q))
+                        modelo.dados.add(p);
+                modelo.fireTableDataChanged();
+                int i = modelo.dados.indexOf(antes);
+                if (i >= 0) tabela.setRowSelectionInterval(i, i);
+            } finally {
+                carregando = false;
+            }
             opcoes();
         }
 
@@ -669,13 +676,16 @@ public class TelaCatalogo extends JPanel {
         void recarregar(String q) {
             Object antes = sel;
             carregando = true;
-            dados.clear();
-            for (Object o : cad.lista())
-                if (q.isEmpty() || (cad.nome(o) + " " + cad.descricao(o)).toLowerCase().contains(q)) dados.add(o);
-            modelo.fireTableDataChanged();
-            int i = dados.indexOf(antes);
-            if (i >= 0) tabela.setRowSelectionInterval(i, i);
-            carregando = false;
+            try {
+                dados.clear();
+                for (Object o : cad.lista())
+                    if (q.isEmpty() || (cad.nome(o) + " " + cad.descricao(o)).toLowerCase().contains(q)) dados.add(o);
+                modelo.fireTableDataChanged();
+                int i = dados.indexOf(antes);
+                if (i >= 0) tabela.setRowSelectionInterval(i, i);
+            } finally {
+                carregando = false;
+            }
         }
 
         void novo() {

@@ -143,8 +143,11 @@ public class TelaDevolucoes extends JPanel {
     void selecionar(Locacao l) {
         atualizar();
         carregando = true;
-        cbLocacao.setSelectedItem(l);
-        carregando = false;
+        try {
+            cbLocacao.setSelectedItem(l);
+        } finally {
+            carregando = false;
+        }
         carregar(l);
     }
 
@@ -152,14 +155,17 @@ public class TelaDevolucoes extends JPanel {
     void atualizar() {
         if (carregando) return;
         carregando = true;
-        Locacao antes = (Locacao) cbLocacao.getSelectedItem();
-        cbLocacao.removeAllItems();
-        for (Locacao l : ctrl.locacoes) {
-            if (l.arquivada) continue;
-            if (l.etapa == Etapa.LOCADO || (l.etapa == Etapa.DEVOLVIDO && l.temSaldo())) cbLocacao.addItem(l);
+        try {
+            Locacao antes = (Locacao) cbLocacao.getSelectedItem();
+            cbLocacao.removeAllItems();
+            for (Locacao l : ctrl.locacoes) {
+                if (l.arquivada) continue;
+                if (l.etapa == Etapa.LOCADO || (l.etapa == Etapa.DEVOLVIDO && l.temSaldo())) cbLocacao.addItem(l);
+            }
+            if (antes != null && ctrl.locacoes.contains(antes)) cbLocacao.setSelectedItem(antes);
+        } finally {
+            carregando = false;            // se ficasse true, o combo de locações pararia de responder
         }
-        if (antes != null && ctrl.locacoes.contains(antes)) cbLocacao.setSelectedItem(antes);
-        carregando = false;
         Locacao nova = (Locacao) cbLocacao.getSelectedItem();
         // se a mesma locação continua selecionada e a conferência está em edição, não perde o que foi digitado
         if (nova != atual || dados == null || atual.etapa != Etapa.LOCADO) carregar(nova);

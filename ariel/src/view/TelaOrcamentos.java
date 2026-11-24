@@ -524,6 +524,15 @@ public class TelaOrcamentos extends JPanel {
 
     private void preparar(Locacao l) {
         montando = true;
+        try {
+            prepararCampos(l);
+        } finally {
+            montando = false;              // se ficasse true, a lista de orçamentos nunca mais se atualizaria
+        }
+        atualizarValores();
+    }
+
+    private void prepararCampos(Locacao l) {
         editando = l;
         linhas.clear();
         msg.setText(" ");
@@ -576,8 +585,6 @@ public class TelaOrcamentos extends JPanel {
                 + "a confirmação fica pendente até ela registrar o pagamento.");
         for (JToggleButton b : bSinal) b.setEnabled(!confirmada);
         tfOutro.setEnabled(!confirmada);
-        montando = false;
-        atualizarValores();
     }
 
     // ----------------------------------------------------------------------------------

@@ -25,7 +25,7 @@ public class Locacao {
     // ----- campos da documentação v0.5 -----
     public LocalDate emissao;                                   // dia em que o orçamento foi emitido (validade = emissão + 30 dias)
     public String modalidade = "Retira";                        // Retira / Entrega / Entrega + montagem
-    public String motivoArquivo = "";                           // "Expirado" ou "Cancelado" quando arquivada
+    public String motivoArquivo = "";                           // "Expirado", "Cancelado" ou "Cancelado (sinal retido)" quando arquivada
     public String autorizadoInadimplentePor = "";               // responsável que autorizou a locação de cliente inadimplente (decisão da equipe: autorização registrada)
     public boolean contratoPendente = false;                    // falha ao gerar o PDF (MSG016): tentar de novo
     public final List<ServicoContratado> servicos = new ArrayList<>();

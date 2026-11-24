@@ -186,7 +186,7 @@ public class TelaOrcamentos extends JPanel {
             if (f.equals("Em negociação") && !s.equals("Em negociação")) continue;
             if (f.equals("Reserva confirmada") && !s.equals("Reserva confirmada")) continue;
             if (f.equals("Expirados") && !s.equals("Expirado")) continue;
-            if (f.equals("Cancelados") && !s.equals("Cancelado")) continue;
+            if (f.equals("Cancelados") && !s.startsWith("Cancelado")) continue;   // inclui "Cancelado (sinal retido)"
             if (!q.isEmpty() && !(l.codigo() + " " + l.cliente.nome).toLowerCase().contains(q)) continue;
             visiveis.add(l);
         }

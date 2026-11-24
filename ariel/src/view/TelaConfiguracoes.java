@@ -51,9 +51,34 @@ public class TelaConfiguracoes extends JPanel {
 
         JPanel cab = new JPanel(new BorderLayout());
         cab.setOpaque(false);
-        cab.setBorder(new EmptyBorder(0, 0, 14, 0));
+        cab.setBorder(new EmptyBorder(0, 0, 10, 0));
         cab.add(TelaPrincipal.rotulo("Configurações", Font.BOLD, 30), BorderLayout.WEST);
-        add(cab, BorderLayout.NORTH);
+
+        // ----- abas: Conta e usuários | Manual do usuário -----
+        CardLayout cartas = new CardLayout();
+        JPanel abas = new JPanel(cartas);
+        abas.setOpaque(false);
+
+        JToggleButton btnConta = Ui.botaoEscolha("Conta e usuários");
+        JToggleButton btnManual = Ui.botaoEscolha("Manual do usuário");
+        ButtonGroup grupo = new ButtonGroup();
+        grupo.add(btnConta);
+        grupo.add(btnManual);
+        btnConta.setSelected(true);
+        btnConta.addActionListener(e -> cartas.show(abas, "conta"));
+        btnManual.addActionListener(e -> cartas.show(abas, "manual"));
+
+        JPanel barraAbas = new JPanel(new Ui.WrapLayout(FlowLayout.LEFT, 8, 6));
+        barraAbas.setOpaque(false);
+        barraAbas.setBorder(new EmptyBorder(4, -8, 12, 0));
+        barraAbas.add(btnConta);
+        barraAbas.add(btnManual);
+
+        JPanel topo = new JPanel(new BorderLayout());
+        topo.setOpaque(false);
+        topo.add(cab, BorderLayout.NORTH);
+        topo.add(barraAbas, BorderLayout.SOUTH);
+        add(topo, BorderLayout.NORTH);
 
         // administrador vê duas colunas (meus dados + usuários); funcionário vê só "meus dados"
         JPanel corpo = new JPanel(new GridLayout(1, eu.ehAdmin() ? 2 : 1, 20, 0));
@@ -63,7 +88,17 @@ public class TelaConfiguracoes extends JPanel {
         JPanel alinhado = new JPanel(new BorderLayout());
         alinhado.setOpaque(false);
         alinhado.add(corpo, BorderLayout.NORTH);
-        add(alinhado, BorderLayout.CENTER);
+
+        JScrollPane rolConta = new JScrollPane(alinhado, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        rolConta.setBorder(null);
+        rolConta.setOpaque(false);
+        rolConta.getViewport().setOpaque(false);
+        rolConta.getVerticalScrollBar().setUnitIncrement(16);
+
+        abas.add(rolConta, "conta");
+        abas.add(new ManualUsuario(), "manual");
+        add(abas, BorderLayout.CENTER);
 
         atualizar();
     }

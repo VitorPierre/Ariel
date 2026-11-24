@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Ariel_alteracoes_dao.sql
--- Rode isto DEPOIS do Ariel_corrigido_fks.sql (mesmo banco `mydb`).
+-- Rode isto DEPOIS do Ariel_corrigido_fks.sql (mesmo banco `ariel`).
 --
 -- Ao escrever o DAO, cruzei cada tabela com a classe Java correspondente e vi que
 -- várias colunas que o model já usa hoje simplesmente não existem no schema corrigido
@@ -35,7 +35,7 @@
 --                 não dava pra reconstruir o pacote de volta corretamente)
 -- ============================================================================
 
-USE `mydb`;
+USE `ariel`;
 
 ALTER TABLE `Cliente`
   ADD COLUMN `rg` VARCHAR(45) NOT NULL DEFAULT '',

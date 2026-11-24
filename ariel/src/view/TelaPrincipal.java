@@ -114,6 +114,16 @@ public class TelaPrincipal extends JFrame {
     private Point arrasteJanela;
     private boolean telaCheia = false;          // modo tela cheia (F11)
     private Rectangle limitesAntes;             // tamanho/posição da janela antes de entrar em tela cheia
+    // Componentes desta janela que receberam MOUSE_ENTERED e ainda não receberam MOUSE_EXITED.
+    // Quando um clique abre um diálogo modal, o MOUSE_EXITED não chega e o destaque de hover fica preso.
+    private final java.util.Set<Component> comHover =
+            java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+    private final AWTEventListener rastreadorHover = ev -> {
+        if (!(ev instanceof MouseEvent me) || me.getComponent() == null) return;
+        if (SwingUtilities.getWindowAncestor(me.getComponent()) != this) return;
+        if (me.getID() == MouseEvent.MOUSE_ENTERED) comHover.add(me.getComponent());
+        else if (me.getID() == MouseEvent.MOUSE_EXITED) comHover.remove(me.getComponent());
+    };
     private JButton btnTelaCheia;
     private boolean menuRecolhido = false;      // sidebar recolhida/expandida (Ctrl+B)
     private JPanel sidebar;
@@ -175,10 +185,26 @@ public class TelaPrincipal extends JFrame {
         // Confere a data a cada 30 s: quando o dia vira, tudo é recalculado sozinho
         relogio = new javax.swing.Timer(30_000, e -> verificarVirada());
         relogio.start();
+
+        // Ao voltar de um diálogo, tira o destaque de quem não está mais sob o mouse
+        Toolkit.getDefaultToolkit().addAWTEventListener(rastreadorHover, AWTEvent.MOUSE_EVENT_MASK);
+        addWindowFocusListener(new WindowAdapter() {
+            @Override public void windowGainedFocus(WindowEvent e) { SwingUtilities.invokeLater(() -> limparHoverPreso()); }
+        });
+    }
+
+    /** Envia MOUSE_EXITED aos componentes que ficaram "em hover" sem o mouse em cima (os ouvintes deles resetam a cor). */
+    private void limparHoverPreso() {
+        for (Component c : new ArrayList<>(comHover)) {
+            if (c.isShowing() && c.getMousePosition() != null) continue;      // o mouse continua em cima: mantém
+            comHover.remove(c);
+            c.dispatchEvent(new MouseEvent(c, MouseEvent.MOUSE_EXITED, System.currentTimeMillis(), 0, -1, -1, 0, false));
+        }
     }
 
     @Override
     public void dispose() {
+        Toolkit.getDefaultToolkit().removeAWTEventListener(rastreadorHover);
         if (relogio != null) relogio.stop();
         super.dispose();
     }
@@ -1375,7 +1401,11 @@ public class TelaPrincipal extends JFrame {
             x.setToolTipText("Remover este cartão do painel (o cadastro continua em Clientes)");
             x.addMouseListener(new MouseAdapter() {
                 public void mouseEntered(MouseEvent e) { x.setBackground(Tema.ALERTA_BG); x.setForeground(Tema.ALERTA); x.borda = Tema.ALERTA; }
-                public void mouseExited(MouseEvent e)  { x.setBackground(BRANCO); x.setForeground(Tema.TEXTO_SUAVE); x.borda = Tema.BORDA; }
+                public void mouseExited(MouseEvent e)  {
+                    x.setBackground(BRANCO); x.setForeground(Tema.TEXTO_SUAVE); x.borda = Tema.BORDA;
+                    // saiu do botão direto para fora do cartão: o cartão não recebe outro MOUSE_EXITED
+                    if (!emArraste && getMousePosition() == null) { hover = false; estilo(); }
+                }
             });
             x.addActionListener(e -> excluirDoPainel(loc));
             return x;
